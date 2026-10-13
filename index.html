@@ -378,6 +378,9 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
 .toast[hidden] { display: none; }
 .toast b { font-weight: 600; }
 .toast .t-act { display: flex; gap: 8px; margin-left: auto; }
+.toast.compact { flex-wrap: nowrap; gap: 4px; padding: 6px 6px 6px 14px; border-radius: 999px; font-size: 13px; width: max-content; }
+.toast.compact > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.toast.compact .btn { height: 30px; padding: 0 10px; background: none; box-shadow: none; border: 0; color: var(--sky); font-size: 13px; }
 
 /* ---------- anotar ---------- */
 .add-btn {
@@ -395,10 +398,27 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
   visibility: hidden; transition: translate .42s cubic-bezier(.32, .72, 0, 1), visibility 0s .42s;
   background: linear-gradient(180deg, #111a31, #090e1b); border: 1px solid var(--line-strong); border-bottom: 0;
   border-radius: 24px 24px 0 0; padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
-  max-height: 92dvh; overflow-y: auto; overscroll-behavior: contain;
+  max-height: calc(var(--vvh, 100dvh) - env(safe-area-inset-top) - 8px); overflow-y: auto; overscroll-behavior: contain;
   box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, .9);
 }
-.sheet.on { translate: -50% 0; visibility: visible; transition: translate .42s cubic-bezier(.32, .72, 0, 1), visibility 0s; }
+.sheet.on { translate: -50% 0; visibility: visible; transition: translate .42s cubic-bezier(.32, .72, 0, 1), bottom .22s ease, visibility 0s; }
+/* con el teclado abierto: el panel se apoya encima del teclado y se compacta */
+@media (max-width: 760px) {
+  .sheet { bottom: var(--kb, 0px); }
+  .sheet.kb { padding: 10px 16px 12px; border-radius: 20px 20px 0 0; }
+  .sheet.kb .grab, .sheet.kb h2, .sheet.kb .hint { display: none; }
+  .sheet.kb .seg button { height: 34px; }
+  .sheet.kb .add-text { height: 50px !important; margin-top: 10px; }
+  .sheet.kb .recents { margin-top: 8px; }
+  .sheet.kb .preview { margin: 10px 2px 0; min-height: 0; }
+  .sheet.kb .prev-amt { font-size: 26px; }
+  .sheet.kb .add-grid { grid-template-columns: 1.4fr 1fr; margin-top: 8px; }
+  .sheet.kb .add-grid .full { grid-column: auto; }
+  .sheet.kb .sheet-actions { margin-top: 12px; }
+  .sheet.kb .sheet-actions .btn { height: 44px; }
+}
+/* la página de detrás no se mueve mientras escribes */
+body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 .grab { width: 40px; height: 5px; border-radius: 9px; background: rgba(255, 255, 255, .18); margin: 0 auto 14px; }
 .sheet h2 { font-size: 19px; margin-bottom: 14px; }
 .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 13px; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); }
@@ -1029,7 +1049,9 @@ function toast(html, actions = []) {
   t.hidden = false;
   t.onclick = e => { const b = e.target.closest('button'); if (!b) return; t.hidden = true; actions[+b.dataset.i].fn && actions[+b.dataset.i].fn(); };
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.hidden = true; }, actions.length ? 12000 : 4500);
+  // con un solo botón (Deshacer) es una pastilla pequeña que dura 5 s; las preguntas, algo más
+  t.classList.toggle('compact', actions.length === 1);
+  toastTimer = setTimeout(() => { t.hidden = true; }, actions.length === 1 ? 5000 : actions.length ? 10000 : 4500);
 }
 
 /* =================================================================
@@ -1720,11 +1742,39 @@ function openAdd(mov) {
   }
   $('#recents').innerHTML = mov ? '' : chips.map(c => `<button class="chip" type="button">${esc(c)}</button>`).join('');
   $('#toast').hidden = true;
+  lockPage();
   sheet.classList.add('on'); sheetBg.classList.add('on');
+  fitSheet();
   addText.focus();
   if (mov) addText.setSelectionRange(addText.value.length, addText.value.length);
 }
-function closeAdd() { sheet.classList.remove('on'); sheetBg.classList.remove('on'); addText.blur(); }
+function closeAdd() {
+  sheet.classList.remove('on', 'kb'); sheetBg.classList.remove('on'); addText.blur();
+  unlockPage();
+}
+// el iPhone no achica la pantalla al sacar el teclado: medimos el hueco libre y colocamos el panel encima
+let lockedY = 0;
+function lockPage() {
+  if (document.body.classList.contains('locked')) return;
+  lockedY = window.scrollY;
+  document.body.style.top = -lockedY + 'px';
+  document.body.classList.add('locked');
+}
+function unlockPage() {
+  if (!document.body.classList.contains('locked')) return;
+  document.body.classList.remove('locked');
+  document.body.style.top = '';
+  window.scrollTo(0, lockedY);
+}
+const vv = window.visualViewport;
+function fitSheet() {
+  if (!vv || !sheet.classList.contains('on')) return;
+  const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  sheet.style.setProperty('--kb', kb + 'px');
+  sheet.style.setProperty('--vvh', vv.height + 'px');
+  sheet.classList.toggle('kb', kb > 120);
+}
+if (vv) { vv.addEventListener('resize', fitSheet); vv.addEventListener('scroll', fitSheet); }
 
 addText.addEventListener('input', updatePreview);
 $$('.seg button', sheet).forEach(b => b.addEventListener('click', () => { add.catTouched = false; setType(b.dataset.t, true); addText.focus(); }));
@@ -1766,7 +1816,7 @@ sheet.addEventListener('submit', e => {
   save(); closeAdd();
   if (state.month !== mov.date.slice(0, 7) && state.view === 'resumen' && !wasEditing) state.month = mov.date.slice(0, 7);
   render(false);
-  toast(`${wasEditing ? 'Guardado' : 'Apuntado'}: <b>${esc(concept)}</b> <span class="amt">${amount > 0 ? '+' : ''}${eur(amount)}</span> · ${CATS[cat].name}`,
+  toast(`<span class="pos">✓</span> <b>${esc(concept)}</b> <span class="amt">${amount > 0 ? '+' : '−'}${eur(Math.abs(amount))}</span> · ${CATS[cat].name}`,
     wasEditing ? [] : [{ label: 'Deshacer', fn: () => { db.movs = db.movs.filter(x => x !== mov); save(); render(false); } }]);
 });
 
