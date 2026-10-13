@@ -333,7 +333,7 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
 .tr:first-child { border-top: 0; }
 .th { font-size: 11.5px; color: var(--faint); text-transform: uppercase; letter-spacing: .07em; padding-top: 0; }
 .t-bud { grid-template-columns: minmax(0, 1.4fr) 100px 100px 120px minmax(0, 1fr); }
-.t-fix { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 80px 100px 100px 110px; }
+.t-fix { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 100px 100px 110px; }
 .t-old { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) 120px 100px; }
 .ta-r { text-align: right; }
 .bud-input { width: 100%; text-align: right; }
@@ -469,7 +469,7 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
   /* movimientos: importe arriba a la derecha y categoría debajo */
   .filters { display: grid; grid-template-columns: 1fr 1fr; }
   .filters > * { width: 100%; }
-  .filters .f-search, .filters select:last-child { grid-column: 1 / -1; }
+  .filters .f-search { grid-column: 1 / -1; }
   .row { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "d c a" "d s s"; gap: 8px 12px; padding: 12px 0; }
   .row .r-date { grid-area: d; align-self: start; }
   .row .r-con { grid-area: c; }
@@ -562,8 +562,7 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
   </div>
   <div class="add-grid">
     <label class="full"><span>Categoría <span class="auto" id="catAuto"></span></span><select id="addCat"></select></label>
-    <label>Cuenta<select id="addAcc"></select></label>
-    <label>Fecha<input type="date" id="addDate"></label>
+    <label class="full">Fecha<input type="date" id="addDate"></label>
   </div>
   <div class="sheet-actions">
     <button type="button" class="btn btn-danger" id="addDel" hidden>Borrar</button>
@@ -790,7 +789,22 @@ function detectAccount(rows) {
     const h = rows.filter(r => ids.has(movId(acc, r))).length;
     if (h > hits) { hits = h; best = acc; }
   }
-  return best;
+  if (best) return best;
+  // sin movimientos en común (p. ej. el extracto del mes siguiente): se reconoce porque el saldo encadena
+  const ordered = rows[0].date >= rows[rows.length - 1].date ? [...rows].reverse() : rows;
+  const r0 = ordered[0], rn = ordered[ordered.length - 1];
+  if (r0.balance == null || rn.balance == null) return null;
+  const near = (a, b) => Math.abs(a - b) < 0.005;
+  for (const acc of Object.keys(db.accounts)) {
+    const list = db.movs.filter(m => m.acc === acc && !m.manual && m.balance != null)
+      .sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.seq - b.seq);
+    if (!list.length) continue;
+    const before = list.filter(m => m.date <= r0.date).pop();
+    if (before && near(before.balance, r0.balance - r0.amount)) return acc;
+    const first = list[0];
+    if (first.date >= rn.date && near(first.balance - first.amount, rn.balance)) return acc;
+  }
+  return null;
 }
 function importRows(rows, acc) {
   const ids = new Set(db.movs.map(m => m.id));
@@ -1245,9 +1259,8 @@ function renderResumen() {
   view.innerHTML = `
   <div class="grid">
     <section class="card c5">
-      <div class="card-head" style="margin-bottom:6px"><span class="card-title">Saldo entre tus cuentas</span><span class="chip">${Object.keys(d.accs).length} cuentas</span></div>
+      <div class="card-head" style="margin-bottom:6px"><span class="card-title">Saldo</span></div>
       <p class="big amt num">${eur(d.saldo)}</p>
-      <div class="acc-chips">${Object.entries(d.accs).map(([k, a]) => `<span class="chip">${esc(accName(k))} <b class="amt num">${eur(a.last)}</b></span>`).join('')}</div>
       <div id="areaHost"></div>
       <div class="area-cap"><span>${p0.d} ${p0.m}</span><span>Pasa el cursor para ver cada día</span><span>Hoy</span></div>
     </section>
@@ -1265,7 +1278,7 @@ function renderResumen() {
       <div class="card-head"><span class="card-title">Ingresos y gastos por mes</span>
         <span class="legend"><span><i style="background:var(--income)"></i>Ingresos</span><span><i style="background:var(--blue)"></i>Gastos</span></span></div>
       <div id="monthsHost"></div>
-      <p class="card-sub" style="margin-top:8px">Pulsa un mes para verlo en detalle. Los traspasos entre tus cuentas no cuentan como gasto.</p>
+      <p class="card-sub" style="margin-top:8px">Pulsa un mes para verlo en detalle. Los traspasos entre tus propias cuentas no cuentan como gasto.</p>
     </section>
     <section class="card c4">
       <div class="card-head"><span class="card-title">En qué se va</span><span class="card-sub amt num">${eur(s.gas)}</span></div>
@@ -1346,7 +1359,7 @@ function insights(mk) {
   if (small.length >= 5) out.push({ html: `<b>${small.length} compras de menos de 10 €</b> este mes suman <b class="amt">${eur(-sum(small.map(m => m.amount)))}</b>. Los gastos pequeños también cuentan.` });
   if (d.pays.length >= 2) {
     const mins = d.pays.map(p => { const w = d.series.filter(x => x.d < p.date && x.d >= addDays(p.date, -7)); return w.length ? Math.min(...w.map(x => x.v)) : null; }).filter(v => v != null);
-    if (mins.length) out.push({ html: `Llegas a la nómina con <b class="amt">${eur(sum(mins) / mins.length)}</b> de media entre tus cuentas. Es tu colchón real.` });
+    if (mins.length) out.push({ html: `Llegas a la nómina con <b class="amt">${eur(sum(mins) / mins.length)}</b> de media. Es tu colchón real.` });
   }
   const rev = d.movs.filter(m => m.cat === 'revolut' && m.date > addDays(d.ref, -90));
   if (rev.length) out.push({ html: `Mandas unos <b class="amt">${eur(-sum(rev.map(m => m.amount)) / 3)}</b> al mes a Revolut. Lo que gastas allí no se ve aquí: importa también su extracto si quieres el cuadro completo.` });
@@ -1375,12 +1388,11 @@ function renderMovs() {
       <input class="f-search" type="search" id="fq" placeholder="Buscar concepto o categoría…" value="${esc(f.q)}" aria-label="Buscar">
       <select id="fm" aria-label="Mes"><option value="">Todos los meses</option>${[...d.months].reverse().map(mk => `<option value="${mk}"${mk === f.month ? ' selected' : ''}>${monthLabel(mk)}</option>`).join('')}</select>
       <select id="fc" aria-label="Categoría"><option value="">Todas las categorías</option>${catOptions(f.cat)}</select>
-      <select id="fa" aria-label="Cuenta"><option value="">Todas las cuentas</option>${Object.keys(db.accounts).map(k => `<option value="${k}"${k === f.acc ? ' selected' : ''}>${esc(accName(k))}</option>`).join('')}</select>
     </div>
     <div class="sumline"><span><b>${list.length}</b> movimientos</span><span>Gastos <b class="amt num">${eur(gas)}</b></span><span>Ingresos <b class="amt num">${eur(ing)}</b></span></div>
     <div class="rows">${shown.map(m => { const dm = dayMon(m.date); return `<div class="row ${m.manual ? 'is-manual' : ''}"${m.manual ? ` data-edit="${esc(m.id)}" title="Pulsa para editar"` : ''}>
       <span class="r-date">${dm.d}<small>${dm.m} ${m.date.slice(2, 4)}</small></span>
-      <span class="r-con"><b title="${esc(m.concept)}">${esc(m.concept)}${m.manual ? '<span class="tag">a mano</span>' : ''}</b><small>${esc(accName(m.acc))}${m.note ? ` · apuntado como «${esc(m.note)}»` : ''}</small></span>
+      <span class="r-con"><b title="${esc(m.concept)}">${esc(m.concept)}${m.manual ? '<span class="tag">a mano</span>' : ''}</b>${m.note ? `<small>Apuntado como «${esc(m.note)}»</small>` : ''}</span>
       <select class="r-cat ${db.movs.find(x => x.id === m.id).cat ? 'manual' : ''}" data-id="${esc(m.id)}" aria-label="Categoría de ${esc(m.concept)}">${catOptions(m.cat)}</select>
       <span class="r-amt amt num ${m.amount > 0 ? 'pos' : ''}">${m.amount > 0 ? '+' : ''}${eur(m.amount)}</span></div>`; }).join('') || '<p class="empty">No hay movimientos con esos filtros.</p>'}</div>
     ${list.length > shown.length ? `<div class="more"><button class="btn btn-ghost" id="moreBtn" type="button">Ver ${Math.min(150, list.length - shown.length)} más</button></div>` : ''}
@@ -1390,7 +1402,6 @@ function renderMovs() {
   $('#fq').addEventListener('input', e => { clearTimeout(qt); qt = setTimeout(() => { f.q = e.target.value; f.limit = 150; renderMovs(); const i = $('#fq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 200); });
   $('#fm').addEventListener('change', e => { f.month = e.target.value; f.limit = 150; renderMovs(); });
   $('#fc').addEventListener('change', e => { f.cat = e.target.value; f.limit = 150; renderMovs(); });
-  $('#fa').addEventListener('change', e => { f.acc = e.target.value; f.limit = 150; renderMovs(); });
   const more = $('#moreBtn'); if (more) more.addEventListener('click', () => { f.limit += 150; renderMovs(); });
   $$('[data-edit]', view).forEach(r => r.addEventListener('click', e => {
     if (e.target.closest('select')) return;
@@ -1470,8 +1481,8 @@ function renderFijos() {
   <section class="card" style="margin-bottom:16px">
     <div class="card-head"><span class="card-title">Activos (${act.length})</span></div>
     <div class="table">
-      <div class="tr t-fix th"><span>Cargo</span><span class="hide-sm">Categoría</span><span class="hide-sm">Cuenta</span><span class="ta-r">Importe</span><span class="ta-r hide-sm">Al año</span><span class="ta-r">Próximo</span></div>
-      ${act.map(f => { const dm = dayMon(f.next); return `<div class="tr t-fix"><span>${esc(f.name)}</span><span class="muted hide-sm">${CATS[f.cat].name}</span><span class="muted hide-sm">${esc(accName(f.acc))}</span>
+      <div class="tr t-fix th"><span>Cargo</span><span class="hide-sm">Categoría</span><span class="ta-r">Importe</span><span class="ta-r hide-sm">Al año</span><span class="ta-r">Próximo</span></div>
+      ${act.map(f => { const dm = dayMon(f.next); return `<div class="tr t-fix"><span>${esc(f.name)}</span><span class="muted hide-sm">${CATS[f.cat].name}</span>
         <span class="ta-r amt num">${eur(f.amount)}</span><span class="ta-r muted amt num hide-sm">${eur0(f.amount * 12)}</span><span class="ta-r">${f.pending ? '<span class="pend" style="display:inline">Pendiente</span>' : `${dm.d} ${dm.m}`}</span></div>`; }).join('') || '<p class="empty">No he detectado cargos fijos.</p>'}
     </div>
   </section>
@@ -1490,10 +1501,8 @@ function renderDatos() {
   setHeader('Importar y datos', 'Todo se guarda solo en este dispositivo. Nada se sube a internet.', false);
   const bakDays = db.lastBackup ? dayDiff(db.lastBackup, todayS()) : null;
   const bakText = bakDays == null ? 'Aún no has hecho ninguna copia.' : bakDays === 0 ? 'Última copia: hoy.' : `Última copia: hace ${bakDays} ${bakDays === 1 ? 'día' : 'días'}.`;
-  const accStats = Object.keys(db.accounts).map(k => {
-    const ms = d.movs.filter(m => m.acc === k);
-    return { k, n: ms.length, from: ms.length ? ms[0].date : null, to: ms.length ? ms[ms.length - 1].date : null, bal: d.accs && d.accs[k] ? d.accs[k].last : null };
-  });
+  const dm = s => { const x = dayMon(s); return `${x.d} ${x.m} ${s.slice(0, 4)}`; };
+  const nManual = d.empty ? 0 : d.movs.filter(m => m.manual).length;
   view.innerHTML = `
   <div class="grid">
     <section class="card c7">
@@ -1504,19 +1513,16 @@ function renderDatos() {
         <b>Elige el CSV o Excel del banco</b>
         <span>Pulsa aquí (o arrástralo en el ordenador). Lo repetido se ignora y lo que apuntaste a mano se empareja solo.</span>
       </label>
-      <div class="imp-opts">
-        <span>Importar en</span>
-        <select id="impAcc"><option value="auto">Detectar la cuenta</option>${Object.keys(db.accounts).map(k => `<option value="${k}">${esc(accName(k))}</option>`).join('')}<option value="new">Cuenta nueva…</option></select>
-        <input type="text" id="impName" placeholder="Nombre de la cuenta" hidden>
-      </div>
-      <p class="note" style="margin-top:14px">En CaixaBank: abre la cuenta, filtra las fechas y pulsa <b>Exportar</b>; en el iPhone guárdalo en <b>Archivos</b>. Si una cuenta no se reconoce, se crea como cuenta nueva y puedes cambiarle el nombre al lado.</p>
+      <p class="note" style="margin-top:14px">En CaixaBank: abre la cuenta, filtra las fechas y pulsa <b>Exportar</b>; en el iPhone guárdalo en <b>Archivos</b>. Importa los extractos de tus dos cuentas: la app los junta y lo ves todo como una sola.</p>
       <p class="note" style="margin-top:8px">En iPhone, importa siempre <b>desde la app instalada</b> (icono en la pantalla de inicio): lo que importes en Safari no aparece en la app.</p>
     </section>
     <section class="card c5">
-      <div class="card-head"><span class="card-title">Tus cuentas</span><button class="chip" type="button" id="newAcc">+ Nueva cuenta</button></div>
-      <div class="accs">${accStats.map(a => `<div class="acc"><div><input type="text" value="${esc(accName(a.k))}" data-acc="${a.k}" aria-label="Nombre de la cuenta">
-        <small>${a.n} movimientos${a.from ? ` · ${dayMon(a.from).d} ${dayMon(a.from).m} ${a.from.slice(0, 4)} a ${dayMon(a.to).d} ${dayMon(a.to).m} ${a.to.slice(0, 4)}` : ''}</small></div>
-        <span class="acc-bal amt num">${a.bal != null ? eur(a.bal) : '–'}</span></div>`).join('') || '<p class="empty">Aún no hay cuentas.</p>'}</div>
+      <div class="card-head"><span class="card-title">Tus datos</span></div>
+      ${d.empty ? '<p class="empty">Aún no hay movimientos.</p>' : `<div class="accs">
+        <div class="acc"><div>Saldo<small>${d.dataRef ? `Último extracto: ${dm(d.dataRef)}` : 'Sin extractos todavía'}</small></div><span class="acc-bal amt num">${eur(d.saldo)}</span></div>
+        <div class="acc"><div>Movimientos<small>Del ${dm(d.first)} al ${dm(d.movs[d.movs.length - 1].date)}</small></div><span class="acc-bal num">${d.movs.length}</span></div>
+        <div class="acc"><div>Apuntados a mano<small>Se emparejan solos al importar el extracto</small></div><span class="acc-bal num">${nManual}</span></div>
+      </div>`}
     </section>
     <section class="card c7">
       <div class="card-head"><span class="card-title">Reglas que has creado</span><span class="card-sub">${db.rules.length}</span></div>
@@ -1534,18 +1540,12 @@ function renderDatos() {
     </section>
   </div>`;
 
-  const drop = $('#drop'), fileIn = $('#fileIn'), impAcc = $('#impAcc'), impName = $('#impName');
-  impAcc.addEventListener('change', () => { impName.hidden = impAcc.value !== 'new'; if (!impName.hidden) impName.focus(); });
+  const drop = $('#drop'), fileIn = $('#fileIn');
   fileIn.addEventListener('change', () => handleFiles([...fileIn.files]));
   ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
   ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
   drop.addEventListener('drop', e => handleFiles([...e.dataTransfer.files]));
-  $$('[data-acc]', view).forEach(inp => inp.addEventListener('change', () => { const v = inp.value.trim(); if (v) { db.accounts[inp.dataset.acc].name = v; save(); } }));
   $$('[data-del]', view).forEach(b => b.addEventListener('click', () => { db.rules.splice(+b.dataset.del, 1); save(); renderDatos(); }));
-  $('#newAcc').addEventListener('click', () => {
-    const name = (prompt('Nombre de la cuenta (por ejemplo: Efectivo, Revolut…)') || '').trim();
-    if (name) { ensureAccount(name); save(); renderDatos(); }
-  });
   $('#expBtn').addEventListener('click', async () => {
     const name = `finanzas-copia-${todayS()}.json`;
     const file = new File([JSON.stringify(db)], name, { type: 'application/json' });
@@ -1578,16 +1578,10 @@ function renderDatos() {
     for (const file of files) {
       try {
         const rows = parseStatement(await readFile(file));
-        let acc = impAcc.value;
-        if (acc === 'new') {
-          const name = impName.value.trim();
-          if (!name) { impName.focus(); toast('Escribe el nombre de la cuenta nueva.'); return; }
-          acc = ensureAccount(name);
-        } else if (acc === 'auto') {
-          acc = detectAccount(rows) || ensureAccount('Cuenta ' + (Object.keys(db.accounts).length + 1));
-        }
+        // cada extracto se reconoce solo; si es de una cuenta nueva se añade al total
+        const acc = detectAccount(rows) || ensureAccount('Cuenta ' + (Object.keys(db.accounts).length + 1));
         const r = importRows(rows, acc);
-        msgs.push(`<b>${esc(file.name)}</b> → ${esc(accName(acc))}: ${r.added} nuevos${r.skipped ? `, ${r.skipped} ya estaban` : ''}${r.matched ? `, ${r.matched} emparejados con lo que apuntaste a mano` : ''}`);
+        msgs.push(`<b>${esc(file.name)}</b>: ${r.added} nuevos${r.skipped ? `, ${r.skipped} ya estaban` : ''}${r.matched ? `, ${r.matched} emparejados con lo que apuntaste a mano` : ''}`);
       } catch (err) {
         msgs.push(`<b>${esc(file.name)}</b>: ${esc(err.message)}`);
       }
@@ -1664,7 +1658,14 @@ function guessCat(concept, type) {
   return { cat: type === 'ingreso' ? 'otros_ing' : 'otros', why: '' };
 }
 
-const sheet = $('#sheet'), sheetBg = $('#sheetBg'), addText = $('#addText'), addCat = $('#addCat'), addAcc = $('#addAcc'), addDate = $('#addDate');
+const sheet = $('#sheet'), sheetBg = $('#sheetBg'), addText = $('#addText'), addCat = $('#addCat'), addDate = $('#addDate');
+// todo cuenta como una sola: lo apuntado a mano se cuelga del extracto más reciente
+function defaultAcc() {
+  if (!Object.keys(db.accounts).length) return ensureAccount('Mi cuenta');
+  const bank = db.movs.filter(m => !m.manual && db.accounts[m.acc]);
+  if (!bank.length) return Object.keys(db.accounts)[0];
+  return bank.reduce((a, b) => (b.date > a.date || (b.date === a.date && b.seq > a.seq) ? b : a)).acc;
+}
 const add = { type: 'gasto', typeTouched: false, catTouched: false, guess: null, editing: null };
 function setType(t, touched) {
   add.type = t; if (touched) add.typeTouched = true;
@@ -1693,8 +1694,6 @@ function updatePreview() {
 function openAdd(mov) {
   add.editing = mov || null; add.typeTouched = !!mov; add.catTouched = !!mov;
   if (!Object.keys(db.accounts).length) ensureAccount('Mi cuenta');
-  addAcc.innerHTML = Object.keys(db.accounts).map(k => `<option value="${k}">${esc(accName(k))}</option>`).join('');
-  addAcc.value = mov ? mov.acc : (db.lastAcc && db.accounts[db.lastAcc] ? db.lastAcc : Object.keys(db.accounts).pop());
   addDate.value = mov ? mov.date : todayS();
   addDate.max = addDays(todayS(), 365);
   $('#sheetTitle').textContent = mov ? 'Editar apunte' : 'Anotar';
@@ -1720,6 +1719,7 @@ function openAdd(mov) {
     if (chips.length >= 10) break;
   }
   $('#recents').innerHTML = mov ? '' : chips.map(c => `<button class="chip" type="button">${esc(c)}</button>`).join('');
+  $('#toast').hidden = true;
   sheet.classList.add('on'); sheetBg.classList.add('on');
   addText.focus();
   if (mov) addText.setSelectionRange(addText.value.length, addText.value.length);
@@ -1755,11 +1755,10 @@ sheet.addEventListener('submit', e => {
   const picked = add.catTouched && (!add.guess || add.guess.cat !== cat);
   // aprende: la próxima vez que escribas esta palabra, ya sabrá la categoría
   if (picked && type !== 'cajero') words(concept).slice(0, 2).forEach(w => { db.learn[w] = cat; });
-  db.lastAcc = addAcc.value;
   let mov = add.editing;
-  if (mov) Object.assign(mov, { concept, amount, cat, acc: addAcc.value, date: addDate.value || todayS(), picked: mov.picked || picked });
+  if (mov) Object.assign(mov, { concept, amount, cat, date: addDate.value || todayS(), picked: mov.picked || picked });
   else {
-    mov = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), acc: addAcc.value, date: addDate.value || todayS(),
+    mov = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), acc: defaultAcc(), date: addDate.value || todayS(),
       concept, amount, balance: null, seq: ++db.seq, manual: true, cat, picked };
     db.movs.push(mov);
   }
