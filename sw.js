@@ -1,5 +1,5 @@
 // Guarda la app para que abra sin conexión. Sube VERSION cuando publiques cambios.
-const VERSION = 'finanzas-v1';
+const VERSION = 'finanzas-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

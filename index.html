@@ -346,7 +346,11 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
   border: 1.5px dashed var(--line-strong); border-radius: 16px; padding: 30px 20px; text-align: center;
   transition: border-color .2s ease, background .2s ease; cursor: pointer;
 }
-.drop.over, .drop:hover { border-color: rgba(96, 165, 250, .7); background: rgba(59, 130, 246, .06); }
+.drop { display: block; }
+.drop.over { border-color: rgba(96, 165, 250, .7); background: rgba(59, 130, 246, .06); }
+@media (hover: hover) { .drop:hover { border-color: rgba(96, 165, 250, .7); background: rgba(59, 130, 246, .06); } }
+/* franja bajo la hora del iPhone: el contenido no se mete debajo al hacer scroll */
+.safe-top { position: fixed; z-index: 40; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); background: rgba(4, 6, 12, .82); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); pointer-events: none; }
 .drop svg { width: 30px; height: 30px; margin: 0 auto 10px; color: var(--sky); }
 .drop b { display: block; font-size: 15px; margin-bottom: 4px; }
 .drop span { font-size: 13px; color: var(--muted); }
@@ -457,6 +461,20 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
   .rail .add-btn svg { width: 26px; height: 26px; }
   .topbar .btn-primary { display: none; }
   input, select, .field { font-size: 16px !important; }
+  /* cabecera: título y ojo en una fila, selector de mes debajo */
+  .topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding-top: 16px; }
+  .top-actions { display: contents; }
+  #privBtn { grid-column: 2; grid-row: 1; }
+  #monthNav { grid-column: 1 / -1; justify-self: start; }
+  /* movimientos: importe arriba a la derecha y categoría debajo */
+  .filters { display: grid; grid-template-columns: 1fr 1fr; }
+  .filters > * { width: 100%; }
+  .filters .f-search, .filters select:last-child { grid-column: 1 / -1; }
+  .row { grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-areas: "d c a" "d s s"; gap: 8px 12px; padding: 12px 0; }
+  .row .r-date { grid-area: d; align-self: start; }
+  .row .r-con { grid-area: c; }
+  .row .r-amt { grid-area: a; align-self: start; }
+  .row .r-cat { grid-area: s; }
   .toast { bottom: calc(86px + env(safe-area-inset-bottom)); }
   .rail .logo-mark, .rail .rail-foot { display: none; }
   .topbar h1 { font-size: 22px; }
@@ -526,6 +544,7 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
   </div>
 </div>
 
+<div class="safe-top" aria-hidden="true"></div>
 <div class="sheet-bg" id="sheetBg"></div>
 <form class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" autocomplete="off">
   <div class="grab" aria-hidden="true"></div>
@@ -682,7 +701,9 @@ function merchantKey(c) {
   if (NICE[k]) return k;
   const w = k.split(' ');
   w[0] = w[0].replace(/^WWW\./, '').replace(/\.(ES|COM)$/, '');
-  return (w[0].length <= 3 && w[1] ? w[0] + ' ' + w[1] : w[0]) || c;
+  // palabras genéricas ("RECIBO AGUAS…", "COMPRA EN…"): usa también la siguiente
+  const generic = /^(RECIBO|COMPRA|PAGO|TRANSFERENCIA|TRANSF\.?|CARGO|ADEUDO)$/.test(w[0]);
+  return ((w[0].length <= 3 || generic) && w[1] ? w[0] + ' ' + w[1] : w[0]) || c;
 }
 
 /* =================================================================
@@ -869,7 +890,10 @@ function D() {
   const fixed = dataRef ? detectFixed(bank, dataRef, ref) : [];
 
   // ciclo de nómina
-  const pays = movs.filter(m => m.cat === 'nomina' && m.amount > 0);
+  // nómina: solo los ingresos grandes de esa categoría (un traspaso pequeño no es la nómina)
+  const nominas = movs.filter(m => m.cat === 'nomina' && m.amount > 0);
+  const bigPay = nominas.length ? Math.max(...nominas.filter(m => dayDiff(m.date, ref) <= 120).map(m => m.amount), 0) : 0;
+  const pays = nominas.filter(m => m.amount >= bigPay * 0.6);
   let lastPay = null, nextPay = null;
   if (pays.length) {
     lastPay = pays[pays.length - 1].date;
@@ -1136,7 +1160,7 @@ function renderResumen() {
       <div class="avail">
         <div class="ring-wrap">${ring(1 - left / cycle, 'ring-ember', 132, 9)}<div class="ring-read"><b>${left}</b><small>días</small></div></div>
         <div>
-          <p class="card-sub">Puedes gastar</p>
+          <p class="card-sub">${avail < 0 ? 'Te faltan para cubrir los fijos' : 'Puedes gastar'}</p>
           <p class="avail-num amt num ${avail < 0 ? 'neg' : ''}">${eur(avail)}</p>
           <ul class="avail-list">
             <li><span>Al día</span><b class="amt num">${eur(Math.max(0, avail) / left)}</b></li>
@@ -1570,6 +1594,8 @@ function renderDatos() {
     }
     save();
     const d = D(); if (!d.empty) state.month = defaultMonth();
+    // primera importación: pon límites de partida con tu media
+    if (!Object.keys(db.budgets).length && suggestBudgets(false)) save();
     renderDatos();
     toast(msgs.join('<br>'));
   }
