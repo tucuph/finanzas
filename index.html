@@ -543,6 +543,35 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 .keys button:active { transform: scale(.93); }
 #padOk { transition: opacity .2s ease, transform .2s ease; }
 * { -webkit-tap-highlight-color: transparent; }
+/* al tocar: se hunde con muelle y suelta una onda del color de la categoría */
+@keyframes mfRipple { from { opacity: .7; transform: scale(1); } to { opacity: 0; transform: scale(1.75); } }
+@keyframes mfPress { 35% { transform: scale(.86); } 70% { transform: scale(1.06); } }
+.mf-ic { position: relative; }
+.mf-cat .mf-ic, .mf-btns .btn { transition: transform .32s cubic-bezier(.34, 1.56, .64, 1), box-shadow .25s ease, background .25s ease; }
+.mf-cat:active .mf-ic { transform: scale(.86); transition-duration: .12s; }
+.mf-btns .btn:active { transform: scale(.94); transition-duration: .12s; }
+.mf-cat.tap .mf-ic { animation: mfPress .34s cubic-bezier(.2, .8, .2, 1); background: color-mix(in srgb, var(--c) 30%, transparent); }
+.mf-cat.tap .mf-ic::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 2px solid var(--c); animation: mfRipple .45s cubic-bezier(.2, .8, .2, 1) forwards; pointer-events: none; }
+.mf-cat.tap .mf-name { color: var(--ink); }
+.mf-btns .btn { position: relative; overflow: hidden; }
+.mf-btns .btn.tap::after { content: ''; position: absolute; left: var(--tx, 50%); top: var(--ty, 50%); width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%; background: currentColor; opacity: .3; animation: mfWave .5s cubic-bezier(.2, .8, .2, 1) forwards; pointer-events: none; }
+@keyframes mfWave { from { transform: scale(0); opacity: .35; } to { transform: scale(12); opacity: 0; } }
+.mf-donut { transition: transform .32s cubic-bezier(.34, 1.56, .64, 1); }
+.mf-donut:active { transform: scale(.96); transition-duration: .12s; }
+/* el panel entra por capas: categoría, nota, importe, teclado y botones */
+.pad.on:not(.picking) > :not(.grab) { animation: mfUp .38s cubic-bezier(.2, .8, .2, 1) both; }
+.pad.on:not(.picking) > h2 { animation-delay: .04s; }
+.pad.on:not(.picking) > .pad-cat { animation-delay: .07s; }
+.pad.on:not(.picking) > .pad-meta { animation-delay: .1s; }
+.pad.on:not(.picking) > .pad-amt, .pad.on:not(.picking) > .pad-expr { animation-delay: .13s; }
+.pad.on:not(.picking) > .keys { animation-delay: .16s; }
+.pad.on:not(.picking) > .sheet-actions { animation-delay: .19s; }
+.pad-amt { transition: transform .2s cubic-bezier(.34, 1.56, .64, 1); }
+.pad-amt.tick { transform: scale(1.04); transition-duration: .06s; }
+/* fecha del iPhone: el valor se pegaba arriba y centrado */
+input[type="date"] { display: flex; align-items: center; line-height: 38px; text-align: left; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; min-height: 1.2em; }
+input[type="date"]::-webkit-calendar-picker-indicator { margin-left: auto; filter: invert(.7); }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1180px) {
@@ -1801,6 +1830,7 @@ $('#keys').addEventListener('click', e => {
   else if (!/,\d\d$/.test(num) && x.length < 24) P.expr = x + k;
   P.typed = true;
   padShow();
+  const a = $('#padAmt'); a.classList.add('tick'); setTimeout(() => a.classList.remove('tick'), 70);
 });
 $('#padCancel').addEventListener('click', closeAdd);
 pad.addEventListener('submit', e => {
@@ -1822,9 +1852,20 @@ pad.addEventListener('submit', e => {
   toast(`<span class="pos">✓</span> <b>${esc(concept)}</b> <span class="amt">${amount > 0 ? '+' : '−'}${eur(v)}</span>${concept === CATS[cat].name ? '' : ' · ' + CATS[cat].name}`,
     [{ label: 'Deshacer', fn: () => { db.movs = db.movs.filter(x => x !== mov); save(); render(false); } }]);
 });
+// sin esto, Safari del iPhone no aplica :active al tocar
+document.addEventListener('touchstart', () => {}, { passive: true });
 document.addEventListener('click', e => {
   const p = e.target.closest('[data-pad]');
-  if (p) { const k = p.dataset.pad; openPad(k === '+' ? 'ingreso' : 'gasto', CATS[k] ? k : null); return; }
+  if (p) {
+    const k = p.dataset.pad, r = p.getBoundingClientRect();
+    p.style.setProperty('--tx', (e.clientX - r.left || r.width / 2) + 'px');
+    p.style.setProperty('--ty', (e.clientY - r.top || r.height / 2) + 'px');
+    p.classList.remove('tap'); void p.offsetWidth; p.classList.add('tap');
+    setTimeout(() => p.classList.remove('tap'), 600);
+    // la onda se ve un instante antes de que suba el panel
+    setTimeout(() => openPad(k === '+' ? 'ingreso' : 'gasto', CATS[k] ? k : null), reduce ? 0 : 110);
+    return;
+  }
   const ed = e.target.closest('[data-mfedit]');
   if (ed) { const m = db.movs.find(x => x.id === ed.dataset.mfedit); if (m) openAdd(m); }
 });
