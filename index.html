@@ -495,10 +495,20 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 .grp-row .grp-n small { display: block; margin: 2px 0 0; font-size: 12px; }
 .grp-row[data-mfedit] { cursor: pointer; }
 /* teclado calculadora */
-.pad-cats { display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 0 20px 4px; scrollbar-width: none; }
-.pad-cats::-webkit-scrollbar { display: none; }
-.pad-cats .chip { flex: none; height: 34px; font-size: 13px; }
-.pad-cats .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
+.pad-cat { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; padding: 8px 12px 8px 8px; border-radius: 16px; text-align: left; background: rgba(255, 255, 255, .04); border: 1px solid var(--line); transition: transform .12s ease, border-color .2s ease; }
+.pad-cat:active { transform: scale(.98); }
+.pad-cat .mf-ic { width: 40px; height: 40px; }
+.pad-cat b { display: block; font-size: 15px; }
+.pad-cat small { display: block; font-size: 12px; color: var(--muted); }
+.pad-cat small.auto { color: var(--sky); }
+.pad-cat .chev { width: 18px; height: 18px; color: var(--muted); }
+.pad-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 6px; padding: 4px 0 8px; }
+.pad-grid .mf-cat[aria-pressed="true"] .mf-ic { box-shadow: inset 0 0 0 2px var(--c), 0 0 18px -4px var(--c); }
+.pad-grid .mf-cat[aria-pressed="true"] .mf-name { color: var(--ink); }
+.pad:not(.picking) .pad-grid { display: none; }
+.pad.picking > :not(.grab, h2, .pad-grid) { display: none; }
+.pad.picking .pad-grid .mf-cat { animation: mfPop .35s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(var(--i, 0) * 18ms); }
+.pad-meta { margin-top: 10px; }
 .pad-amt { font: 600 40px/1 var(--display); letter-spacing: -.03em; text-align: right; margin: 16px 2px 0; white-space: nowrap; overflow-x: auto; }
 .pad-amt.in { color: var(--income-ink); }
 .pad-expr { min-height: 18px; margin: 4px 2px 0; text-align: right; font-size: 13px; color: var(--muted); }
@@ -531,8 +541,6 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 .mf-btns .btn:active { transform: scale(.95); }
 .keys button { transition: transform .12s ease, background .12s ease; }
 .keys button:active { transform: scale(.93); }
-.pad-cats .chip { transition: background .18s ease, border-color .18s ease, color .18s ease, transform .12s ease; }
-.pad-cats .chip:active { transform: scale(.95); }
 #padOk { transition: opacity .2s ease, transform .2s ease; }
 * { -webkit-tap-highlight-color: transparent; }
 
@@ -669,13 +677,14 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
   <p class="hint" id="addHint">Escribe como hablas: «café 2,20», «gasolina 40», «+50 bizum de Juan».</p>
 </form>
 
-<form class="sheet" id="pad" role="dialog" aria-modal="true" aria-labelledby="padTitle" autocomplete="off">
+<form class="sheet pad" id="pad" role="dialog" aria-modal="true" aria-labelledby="padTitle" autocomplete="off">
   <div class="grab" aria-hidden="true"></div>
   <h2 id="padTitle">Gasto</h2>
-  <div class="pad-cats" id="padCats" role="group" aria-label="Categoría"></div>
+  <div class="pad-grid" id="padGrid" role="group" aria-label="Elige la categoría"></div>
+  <button type="button" class="pad-cat" id="padCat" aria-label="Cambiar categoría"></button>
+  <div class="pad-meta"><input type="text" id="padNote" placeholder="¿Qué es? Ej.: gimnasio 5" aria-label="Qué es" enterkeyhint="done"><input type="date" id="padDate" aria-label="Fecha"></div>
   <p class="pad-amt num" id="padAmt" aria-live="polite">0,00 €</p>
   <p class="pad-expr num" id="padExpr"></p>
-  <div class="pad-meta"><input type="text" id="padNote" placeholder="Nota (opcional)" aria-label="Nota" enterkeyhint="done"><input type="date" id="padDate" aria-label="Fecha"></div>
   <div class="keys" id="keys">
     <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" class="op" data-k="÷" aria-label="Dividir">÷</button>
     <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" class="op" data-k="×" aria-label="Multiplicar">×</button>
@@ -1744,26 +1753,45 @@ function padShow() {
   $('#padExpr').textContent = /[-+×÷]/.test(P.expr) ? P.expr.replace(/-/g, '−') : '';
   $('#padOk').disabled = !(v > 0);
 }
-function padPick(c) {
-  P.cat = c;
-  $$('#padCats button').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === c));
+// la categoría: la que tocas en el inicio, o la que se deduce de lo que escribes, o la que eliges en la cuadrícula
+function padCatShow() {
+  const c = P.cat, auto = !P.touched;
+  const why = auto ? (P.why ? `${P.why[0].toUpperCase() + P.why.slice(1)} · toca para cambiar` : 'Se pone sola al escribir · toca para elegir') : 'Toca para cambiar';
+  $('#padCat').innerHTML = `${cIcon(c)}<span><b>${CATS[c].name}</b><small class="${auto && P.why ? 'auto' : ''}">${why}</small></span>
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>`;
+}
+function padPicking(on) {
+  pad.classList.toggle('picking', on);
+  $('#padTitle').textContent = on ? (P.type === 'ingreso' ? '¿De qué es el ingreso?' : '¿En qué has gastado?') : (P.type === 'ingreso' ? 'Ingreso' : 'Gasto');
+  if (on) $('#padGrid').innerHTML = usedCats(P.type, 99).map((c, i) => `<button class="mf-cat" type="button" style="--i:${i}" data-c="${c}" aria-pressed="${P.touched && c === P.cat}">${cIcon(c)}<span class="mf-name">${CATS[c].name}</span></button>`).join('');
+}
+// lo escrito en la nota: si lleva importe y no has usado el teclado, lo usa; y si no elegiste categoría, la adivina
+function padNote() {
+  const p = parseEntry($('#padNote').value);
+  if (!P.typed) P.expr = p.amount > 0 ? String(p.amount).replace('.', ',') : '';
+  if (!P.touched) {
+    const g = p.concept ? guessCat(p.concept, P.type) : { cat: P.type === 'ingreso' ? 'otros_ing' : 'otros', why: '' };
+    P.cat = g.cat; P.why = g.why;
+    padCatShow();
+  }
+  padShow();
 }
 function openPad(type, cat) {
   if (!Object.keys(db.accounts).length) ensureAccount('Mi cuenta');
-  P.type = type; P.expr = '';
-  const cats = usedCats(type, 99);
-  if (cat && !cats.includes(cat)) cats.unshift(cat);
-  $('#padTitle').textContent = type === 'ingreso' ? 'Ingreso' : 'Gasto';
-  $('#padCats').innerHTML = cats.map(c => `<button class="chip" type="button" data-c="${c}" style="--c:${catUI(c)[0]}">${CATS[c].name}</button>`).join('');
-  padPick(cat || cats[0]);
+  Object.assign(P, { type, expr: '', typed: false, chosen: false, touched: !!cat, why: '', cat: cat || (type === 'ingreso' ? 'otros_ing' : 'otros') });
   $('#padNote').value = ''; $('#padDate').value = todayS(); $('#padDate').max = addDays(todayS(), 365);
-  padShow();
+  padPicking(false); padCatShow(); padShow();
   $('#toast').hidden = true;
   lockPage();
   pad.classList.add('on'); sheetBg.classList.add('on');
-  const sel = $('#padCats [aria-pressed="true"]'); if (sel) sel.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
-$('#padCats').addEventListener('click', e => { const b = e.target.closest('button'); if (b) padPick(b.dataset.c); });
+$('#padCat').addEventListener('click', () => padPicking(true));
+$('#padGrid').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  P.cat = b.dataset.c; P.touched = P.chosen = true;
+  padPicking(false); padCatShow();
+});
+$('#padNote').addEventListener('input', padNote);
 $('#keys').addEventListener('click', e => {
   const k = e.target.closest('button') && e.target.closest('button').dataset.k; if (!k) return;
   const x = P.expr, last = x.slice(-1), num = x.split(/[-+×÷]/).pop();
@@ -1771,6 +1799,7 @@ $('#keys').addEventListener('click', e => {
   else if ('+-×÷'.includes(k)) { if (x) P.expr = (/[-+×÷,]/.test(last) ? x.slice(0, -1) : x) + k; }
   else if (k === ',') { if (!num.includes(',')) P.expr = x + (num ? ',' : '0,'); }
   else if (!/,\d\d$/.test(num) && x.length < 24) P.expr = x + k;
+  P.typed = true;
   padShow();
 });
 $('#padCancel').addEventListener('click', closeAdd);
@@ -1778,7 +1807,10 @@ pad.addEventListener('submit', e => {
   e.preventDefault();
   const v = calc(P.expr); if (!(v > 0)) return;
   const { type, cat } = P, amount = type === 'ingreso' ? v : -v;
-  const concept = $('#padNote').value.trim() || CATS[cat].name;
+  const written = parseEntry($('#padNote').value).concept;
+  const concept = written || CATS[cat].name;
+  // aprende: si elegiste otra categoría para lo que escribiste, la próxima vez ya la sabrá
+  if (written && P.chosen && guessCat(written, type).cat !== cat) words(written).slice(0, 2).forEach(w => { db.learn[w] = cat; });
   const mov = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), acc: defaultAcc(), date: $('#padDate').value || todayS(),
     concept, amount, balance: null, seq: ++db.seq, manual: true, cat, picked: true };
   db.movs.push(mov);
