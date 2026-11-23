@@ -398,7 +398,7 @@ input:focus, select:focus { outline: none; border-color: rgba(96, 165, 250, .6);
   visibility: hidden; transition: translate .42s cubic-bezier(.32, .72, 0, 1), visibility 0s .42s;
   background: linear-gradient(180deg, #111a31, #090e1b); border: 1px solid var(--line-strong); border-bottom: 0;
   border-radius: 24px 24px 0 0; padding: 10px 20px calc(20px + env(safe-area-inset-bottom));
-  max-height: calc(var(--vvh, 100dvh) - env(safe-area-inset-top) - 8px); overflow-y: auto; overscroll-behavior: contain;
+  max-height: calc(var(--vvh, 100dvh) - env(safe-area-inset-top) - 8px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
   box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, .9);
 }
 .sheet.on { translate: -50% 0; visibility: visible; transition: translate .42s cubic-bezier(.32, .72, 0, 1), bottom .22s ease, visibility 0s; }
@@ -490,6 +490,10 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 .grp li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 13px; border-top: 1px dashed var(--line); }
 .grp li > span { min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .grp li[data-mfedit] { cursor: pointer; }
+.grp-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.grp-row .mf-ic { width: 34px; height: 34px; } .grp-row .mf-ic svg { width: 16px; height: 16px; }
+.grp-row .grp-n small { display: block; margin: 2px 0 0; font-size: 12px; }
+.grp-row[data-mfedit] { cursor: pointer; }
 /* teclado calculadora */
 .pad-cats { display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 0 20px 4px; scrollbar-width: none; }
 .pad-cats::-webkit-scrollbar { display: none; }
@@ -499,7 +503,7 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 .pad-amt.in { color: var(--income-ink); }
 .pad-expr { min-height: 18px; margin: 4px 2px 0; text-align: right; font-size: 13px; color: var(--muted); }
 .pad-meta { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; margin-top: 12px; }
-.pad-meta input { width: 100%; min-width: 0; }
+.pad-meta input { display: block; width: 100%; min-width: 0; -webkit-appearance: none; appearance: none; }
 .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
 .keys button { height: 54px; border-radius: 14px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); font: 600 22px var(--display); color: var(--ink); }
 .keys button:active { background: rgba(255, 255, 255, .1); }
@@ -581,8 +585,6 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
   <nav>
     <a href="#resumen" data-view="resumen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg><span>Resumen</span></a>
     <a href="#movimientos" data-view="movimientos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1" fill="currentColor"/><circle cx="3.5" cy="12" r="1" fill="currentColor"/><circle cx="3.5" cy="18" r="1" fill="currentColor"/></svg><span>Movimientos</span></a>
-    <button class="add-btn" type="button" id="addBtn" aria-label="Anotar un movimiento" title="Anotar un movimiento"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-    <a href="#presupuestos" data-view="presupuestos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg><span>Presupuestos</span></a>
     <a href="#fijos" data-view="fijos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg><span>Cargos fijos</span></a>
     <a href="#datos" data-view="datos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg><span>Importar y datos</span></a>
   </nav>
@@ -1112,22 +1114,8 @@ if (!db.seeded && !db.movs.length && Array.isArray(window.DATOS_INICIALES)) {
   }
   db.seeded = true;
   invalidate();
-  suggestBudgets(false);
   save();
 }
-function suggestBudgets(overwrite) {
-  const d = D(); if (d.empty) return 0;
-  const lastFull = +d.ref.slice(8) >= 28 ? d.ref.slice(0, 7) : shiftMonth(d.ref.slice(0, 7), -1);
-  const avg = prevAvg(shiftMonth(lastFull, 1));
-  if (!avg) return 0;
-  let n = 0;
-  for (const c of ['super', 'restaurantes', 'domicilio', 'compras', 'transporte', 'ocio', 'estanco']) {
-    const v = avg.cats[c] || 0;
-    if (v >= 5 && (overwrite || !db.budgets[c])) { db.budgets[c] = Math.ceil(v / 10) * 10; n++; }
-  }
-  return n;
-}
-
 /* =================================================================
    TOOLTIP Y AVISOS
    ================================================================= */
@@ -1151,89 +1139,6 @@ function toast(html, actions = []) {
   // con un solo botón (Deshacer) es una pastilla pequeña que dura 5 s; las preguntas, algo más
   t.classList.toggle('compact', actions.length === 1);
   toastTimer = setTimeout(() => { t.hidden = true; }, actions.length === 1 ? 5000 : actions.length ? 10000 : 4500);
-}
-
-/* =================================================================
-   GRÁFICAS
-   ================================================================= */
-function niceMax(v) {
-  if (v <= 0) return 100;
-  const p = Math.pow(10, Math.floor(Math.log10(v))) / 2;
-  return Math.ceil(v / p) * p;
-}
-const topRound = (x, y, w, h, r) => {
-  r = Math.min(r, h, w / 2);
-  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
-};
-
-function areaChart(host, pts) {
-  const W = Math.max(200, host.clientWidth), Hh = 120, T = 10, B = 4;
-  const vs = pts.map(p => p.v);
-  let lo = Math.min(...vs), hi = Math.max(...vs); if (hi === lo) { hi += 1; lo -= 1; }
-  const x = i => i / (pts.length - 1) * W;
-  const y = v => T + (1 - (v - lo) / (hi - lo)) * (Hh - T - B);
-  const d = pts.map((p, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(p.v).toFixed(1)).join('');
-  host.innerHTML = `<svg class="area" viewBox="0 0 ${W} ${Hh}" width="${W}" height="${Hh}" role="img" aria-label="Evolución del saldo conjunto">
-    <path d="${d}L${W},${Hh}L0,${Hh}Z" fill="url(#gArea)"/><path d="${d}" class="ln"/>
-    <line class="xh" y1="0" y2="${Hh}" x1="-9" x2="-9"/><circle class="xd" r="4.5" cx="-9" cy="-9"/>
-    <rect width="${W}" height="${Hh}" fill="transparent"/></svg>`;
-  const svg = host.firstChild, xh = $('.xh', svg), xd = $('.xd', svg);
-  svg.addEventListener('pointermove', e => {
-    const r = svg.getBoundingClientRect();
-    const i = Math.max(0, Math.min(pts.length - 1, Math.round((e.clientX - r.left) / r.width * (pts.length - 1))));
-    const px = x(i), py = y(pts[i].v);
-    xh.setAttribute('x1', px); xh.setAttribute('x2', px); xd.setAttribute('cx', px); xd.setAttribute('cy', py);
-    const dm = dayMon(pts[i].d);
-    showTip(`<div class="t-h">${dm.d} ${dm.m}</div><b class="amt">${eur(pts[i].v)}</b>`, e.clientX, r.top + py);
-  });
-  svg.addEventListener('pointerleave', () => { hideTip(); xh.setAttribute('x1', -9); xh.setAttribute('x2', -9); xd.setAttribute('cx', -9); });
-}
-
-function monthsChart(host, months, stats, selected, onPick) {
-  const W = Math.max(280, host.clientWidth), Hh = 240, L = 54, R = 6, T = 12, B = 28;
-  const max = niceMax(Math.max(...months.map(mk => Math.max(stats[mk].ing, stats[mk].gas))));
-  const ih = Hh - T - B, gw = (W - L - R) / months.length, bw = Math.max(5, Math.min(18, (gw - 16) / 2));
-  const y = v => T + ih - Math.max(0, v) / max * ih;
-  let g = '';
-  [0, .5, 1].forEach(f => {
-    const yy = y(max * f);
-    g += `<line class="grid-l" x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}"/><text x="${L - 10}" y="${yy + 4}" text-anchor="end" class="num">${eur0(max * f)}</text>`;
-  });
-  months.forEach((mk, i) => {
-    const s = stats[mk], cx = L + gw * (i + .5), sel = mk === selected;
-    if (sel) g += `<rect class="band" x="${L + gw * i + 3}" y="${T - 6}" width="${gw - 6}" height="${ih + 6 + B}" rx="10"/>`;
-    g += `<rect class="hov" data-hov="${i}" x="${L + gw * i + 3}" y="${T - 6}" width="${gw - 6}" height="${ih + 6 + B}" rx="10" opacity="0"/>`;
-    const hi = ih * Math.max(0, s.ing) / max, hg = ih * Math.max(0, s.gas) / max;
-    if (hi > 0) g += `<path class="bar-in" d="${topRound(cx - bw - 1, T + ih - hi, bw, hi, 4)}"/>`;
-    if (hg > 0) g += `<path class="bar-out" d="${topRound(cx + 1, T + ih - hg, bw, hg, 4)}"/>`;
-    g += `<text x="${cx}" y="${Hh - 8}" text-anchor="middle" class="${sel ? 'sel' : ''}">${MON[+mk.slice(5) - 1]}</text>`;
-    g += `<rect class="hit" data-i="${i}" x="${L + gw * i}" y="0" width="${gw}" height="${Hh}"/>`;
-  });
-  host.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${Hh}" width="${W}" height="${Hh}" role="img" aria-label="Ingresos y gastos por mes">${g}</svg>`;
-  const svg = host.firstChild;
-  $$('.hit', svg).forEach(h => {
-    const i = +h.dataset.i, mk = months[i], s = stats[mk], hov = $(`[data-hov="${i}"]`, svg);
-    h.addEventListener('pointermove', e => {
-      hov.setAttribute('opacity', 1);
-      const diff = s.ing - s.gas;
-      showTip(`<div class="t-h">${monthLabel(mk)}</div>
-        <div class="t-r"><span><i style="background:var(--income)"></i>Ingresos</span><b class="amt">${eur(s.ing)}</b></div>
-        <div class="t-r"><span><i style="background:var(--blue)"></i>Gastos</span><b class="amt">${eur(s.gas)}</b></div>
-        <div class="t-r"><span>Diferencia</span><b class="amt ${diff >= 0 ? 'pos' : ''}">${eur(diff)}</b></div>`, e.clientX, e.clientY);
-    });
-    h.addEventListener('pointerleave', () => { hov.setAttribute('opacity', 0); hideTip(); });
-    h.addEventListener('click', () => onPick(mk));
-  });
-}
-
-function ring(value, cls, size = 132, stroke = 10) {
-  const r = (100 - stroke) / 2, C = 2 * Math.PI * r;
-  const v = Math.max(0, Math.min(1, value));
-  return `<svg viewBox="0 0 100 100" class="${cls}" aria-hidden="true"><circle class="track" cx="50" cy="50" r="${r}" stroke-width="${stroke}"/>
-    <circle class="prog" cx="50" cy="50" r="${r}" stroke-width="${stroke}" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-off="${C * (1 - v)}"/></svg>`;
-}
-function animateRings(root) {
-  requestAnimationFrame(() => requestAnimationFrame(() => $$('.prog[data-off]', root).forEach(p => p.style.strokeDashoffset = p.dataset.off)));
 }
 
 /* =================================================================
@@ -1280,34 +1185,14 @@ function renderResumen() {
   const lastExt = d.dataRef ? `Último extracto: ${dayMon(d.dataRef).d} ${dayMon(d.dataRef).m}` : 'Sin extractos todavía';
   setHeader(hello, `Hoy, ${dayMon(d.ref).d} de ${MONTHS[+d.ref.slice(5, 7) - 1]} · ${lastExt}`, true);
 
-  const mk = state.month, s = d.stats[mk], avg = prevAvg(mk);
+  const mk = state.month, s = d.stats[mk];
 
-  // disponible hasta la nómina
-  let availHTML;
-  if (d.nextPay) {
-    const ups = d.fixed.filter(f => f.active && (f.pending || (f.next > d.ref && f.next <= d.nextPay)));
-    const owed = sum(ups.map(f => f.amount));
-    const avail = d.saldo - owed;
-    const left = Math.max(1, dayDiff(d.ref, d.nextPay));
-    const cycle = Math.max(1, dayDiff(d.lastPay, d.nextPay));
-    const np = dayMon(d.nextPay);
-    availHTML = `<div class="card-head"><span class="card-title">Hasta la próxima nómina</span><span class="chip">≈ ${np.d} ${np.m}</span></div>
-      <div class="avail">
-        <div class="ring-wrap">${ring(1 - left / cycle, 'ring-ember', 132, 9)}<div class="ring-read"><b>${left}</b><small>días</small></div></div>
-        <div>
-          <p class="card-sub">${avail < 0 ? 'Te faltan para cubrir los fijos' : 'Puedes gastar'}</p>
-          <p class="avail-num amt num ${avail < 0 ? 'neg' : ''}">${eur(avail)}</p>
-          <ul class="avail-list">
-            <li><span>Al día</span><b class="amt num">${eur(Math.max(0, avail) / left)}</b></li>
-            <li><span>Saldo ahora</span><b class="amt num">${eur(d.saldo)}</b></li>
-            <li><span>Cargos fijos pendientes (${ups.length})</span><b class="amt num">−${eur(owed)}</b></li>
-          </ul>
-        </div>
-      </div>`;
-  } else {
-    availHTML = `<div class="card-head"><span class="card-title">Hasta la próxima nómina</span></div>
-      <p class="empty">No encuentro una nómina en tus movimientos. Si cobras con otro concepto, cámbiale la categoría a «Nómina» en Movimientos.</p>`;
-  }
+  // últimos movimientos (los más recientes, de cualquier mes)
+  const last = d.movs.filter(m => m.type === 'gasto' || m.type === 'ingreso').slice(-8).reverse();
+  const lastHTML = last.length ? last.map(m => { const dm = dayMon(m.date); return `<div class="grp-row"${m.manual ? ` data-mfedit="${esc(m.id)}" title="Pulsa para editar"` : ''}>${cIcon(m.cat)}
+      <span class="grp-n">${esc(m.manual ? m.concept : pretty(m.concept))}<small>${dm.d} ${dm.m} · ${CATS[m.cat].name}</small></span>
+      <b class="amt num ${m.amount > 0 ? 'pos' : ''}">${m.amount > 0 ? '+' : ''}${eur(m.amount)}</b></div>`; }).join('')
+    : '<p class="empty">Todavía no hay movimientos.</p>';
 
   // próximos cargos
   const ups = d.fixed.filter(f => f.active).slice(0, 6);
@@ -1316,12 +1201,6 @@ function renderResumen() {
       <span><span class="up-name">${esc(f.name)}</span><span class="up-cat">${CATS[f.cat].name}</span></span>
       <span><span class="up-amt amt num">${eur(f.amount)}</span>${f.pending ? '<span class="pend">Pendiente</span>' : ''}</span></li>`; }).join('')}</ul>`
     : '<p class="empty">No he detectado cargos que se repitan cada mes.</p>';
-
-  // presupuestos
-  const buds = Object.entries(db.budgets).filter(([c, b]) => CATS[c] && b > 0)
-    .map(([c, b]) => ({ c, b, v: s.cats[c] || 0 })).sort((a, b) => b.v / b.b - a.v / a.b).slice(0, 5);
-  const budsHTML = buds.length ? `<div class="buds">${buds.map(budRow).join('')}</div>`
-    : `<p class="empty">Aún no tienes presupuestos.</p><a class="btn btn-ghost btn-sm" href="#presupuestos">Crear presupuestos</a>`;
 
   // comercios
   const mers = {};
@@ -1349,10 +1228,6 @@ function renderResumen() {
     return `<div class="wbar ${i === wpeak ? 'peak' : ''}" style="--h:${(hn * 100).toFixed(1)}%;--hn:${hn.toFixed(3)}"><span class="wtip amt">${eur0(v)}</span><div class="wtrack"><div class="wfill"></div></div><span class="wday">${WEEK[i]}</span></div>`;
   }).join('')}</div>`;
 
-  // serie de saldo (últimos 120 días)
-  const pts = d.series.slice(-120);
-  const p0 = dayMon(pts[0].d);
-
   view.innerHTML = `
   <div class="grid">
     <section class="card c12 mf">${monefyHTML(s)}</section>
@@ -1360,32 +1235,14 @@ function renderResumen() {
       <div class="card-head"><span class="card-title">Por categoría</span><span class="card-sub" style="text-transform:capitalize">${MONTHS[+mk.slice(5) - 1]}</span></div>
       ${groupsHTML(d, mk, s)}
     </section>
-    <section class="card c6">
-      <div class="card-head" style="margin-bottom:6px"><span class="card-title">Saldo</span></div>
-      <p class="big amt num">${eur(d.saldo)}</p>
-      <div id="areaHost"></div>
-      <div class="area-cap"><span>${p0.d} ${p0.m}</span><span>Pasa el cursor para ver cada día</span><span>Hoy</span></div>
+    <section class="card c7">
+      <div class="card-head"><span class="card-title">Últimos movimientos</span><a class="chip" href="#movimientos">Ver todos</a></div>
+      ${lastHTML}
     </section>
-    <section class="card c6">${availHTML}</section>
-    <section class="card c8">
-      <div class="card-head"><span class="card-title">Ingresos y gastos por mes</span>
-        <span class="legend"><span><i style="background:var(--income)"></i>Ingresos</span><span><i style="background:var(--blue)"></i>Gastos</span></span></div>
-      <div id="monthsHost"></div>
-      <p class="card-sub" style="margin-top:8px">Pulsa un mes para verlo en detalle. Los traspasos entre tus propias cuentas no cuentan como gasto.</p>
-    </section>
-    <section class="card c4">
+    <section class="card c5">
       <div class="card-head"><span class="card-title">Próximos cargos</span><a class="chip" href="#fijos">Ver todos</a></div>
       ${upsHTML}
     </section>
-    <section class="card c6">
-      <div class="card-head"><span class="card-title">Presupuestos</span><a class="chip" href="#presupuestos">Editar</a></div>
-      ${budsHTML}
-    </section>
-    <section class="card c6">
-      <div class="card-head"><span class="card-title">Lo que veo</span></div>
-      <ul class="ins">${insights(mk).map(i => `<li><span class="ins-ic ${i.k || ''}">${ICON[i.ic || 'info']}</span><span>${i.html}</span></li>`).join('')}</ul>
-    </section>
-
     <section class="card c7">
       <div class="card-head"><span class="card-title">Dónde más gastas</span><span class="card-sub" style="text-transform:capitalize">${MONTHS[+mk.slice(5) - 1]}</span></div>
       ${mersHTML}
@@ -1397,23 +1254,12 @@ function renderResumen() {
     </section>
   </div>`;
 
-  // las gráficas se redibujan cuando cambia el ancho de su tarjeta
-  const draws = [
-    [$('#areaHost'), h => areaChart(h, pts)],
-    [$('#monthsHost'), h => monthsChart(h, d.months, d.stats, mk, m => { state.month = m; render(false); })]
-  ];
-  draws.forEach(([h, fn]) => { fn(h); h.dataset.w = h.clientWidth; });
-  chartRO = new ResizeObserver(() => draws.forEach(([h, fn]) => {
-    if (Math.abs(h.clientWidth - (+h.dataset.w || 0)) > 2) { h.dataset.w = h.clientWidth; fn(h); }
-  }));
-  draws.forEach(([h]) => chartRO.observe(h));
   $('#mfDonut').addEventListener('click', () => {
     state.mfOpen = !state.mfOpen;
     $('#mfList').hidden = !state.mfOpen;
     $('#mfDonut').setAttribute('aria-expanded', state.mfOpen);
     if (state.mfOpen) $('#mfList').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
   });
-  animateRings(view);
 }
 
 // las categorías que más usas, de más a menos (todo tu historial, para que no bailen cada mes)
@@ -1456,46 +1302,6 @@ function groupsHTML(d, mk, s) {
   }).join('');
 }
 
-function budRow({ c, b, v }) {
-  const r = v / b;
-  const cls = r > 1 ? 'over' : r >= .8 ? 'warn' : '';
-  const label = r > 1 ? `${ICON.warn.replace('<svg', '<svg width="12" height="12"')} Te has pasado ${eur(v - b)}` : r >= .8 ? `${ICON.warn.replace('<svg', '<svg width="12" height="12"')} Cerca del límite` : '';
-  return `<div><div class="bud-top"><span>${CATS[c].name}</span><span><b class="amt num">${eur(v)}</b> de <span class="amt num">${eur0(b)}</span></span></div>
-    <div class="meter ${cls}"><i style="width:${Math.min(100, r * 100).toFixed(1)}%"></i></div>${label ? `<div class="bud-state ${cls}">${label}</div>` : ''}</div>`;
-}
-
-function insights(mk) {
-  const d = D(), s = d.stats[mk], avg = prevAvg(mk), out = [];
-  const act = d.fixed.filter(f => f.active);
-  const tel = act.filter(f => f.cat === 'telefonia');
-  if (tel.length >= 2) {
-    const t = sum(tel.map(f => f.amount));
-    out.push({ ic: 'warn', k: 'w', html: `Pagas <b>${tel.length} compañías de teléfono e internet</b> (${tel.map(f => esc(f.name)).join(', ')}): <b class="amt">${eur(t)}</b> al mes, <b class="amt">${eur0(t * 12)}</b> al año. ¿Las necesitas todas?` });
-  }
-  const subs = act.filter(f => f.cat === 'suscripciones');
-  if (subs.length) {
-    const t = sum(subs.map(f => f.amount));
-    out.push({ html: `Tus <b>${subs.length} suscripciones</b> activas suman <b class="amt">${eur(t)}</b> al mes (<span class="amt">${eur0(t * 12)}</span> al año).` });
-  }
-  if (avg) {
-    const ch = ['super', 'restaurantes', 'domicilio', 'compras', 'transporte', 'ocio', 'estanco'].filter(c => (avg.cats[c] || 0) >= 20).map(c => ({ c, v: s.cats[c] || 0, a: avg.cats[c], r: ((s.cats[c] || 0) - avg.cats[c]) / avg.cats[c] }));
-    const worst = ch.filter(x => x.r >= .25).sort((a, b) => (b.v - b.a) - (a.v - a.a))[0];
-    if (worst) out.push({ ic: 'warn', k: 'w', html: `En <b>${CATS[worst.c].name}</b> llevas <b class="amt">${eur(worst.v)}</b>, un ${pct(worst.r)} más que tu media.` });
-    const best = ch.filter(x => x.r <= -.2).sort((a, b) => (a.v - a.a) - (b.v - b.a))[0];
-    if (best) out.push({ ic: 'good', k: 'g', html: `Bien: en <b>${CATS[best.c].name}</b> has gastado un ${pct(-best.r)} menos que tu media.` });
-  }
-  const small = d.movs.filter(m => m.date.slice(0, 7) === mk && m.type === 'gasto' && VARIABLE.includes(m.cat) && m.amount < 0 && -m.amount < 10);
-  if (small.length >= 5) out.push({ html: `<b>${small.length} compras de menos de 10 €</b> este mes suman <b class="amt">${eur(-sum(small.map(m => m.amount)))}</b>. Los gastos pequeños también cuentan.` });
-  if (d.pays.length >= 2) {
-    const mins = d.pays.map(p => { const w = d.series.filter(x => x.d < p.date && x.d >= addDays(p.date, -7)); return w.length ? Math.min(...w.map(x => x.v)) : null; }).filter(v => v != null);
-    if (mins.length) out.push({ html: `Llegas a la nómina con <b class="amt">${eur(sum(mins) / mins.length)}</b> de media. Es tu colchón real.` });
-  }
-  const rev = d.movs.filter(m => m.cat === 'revolut' && m.date > addDays(d.ref, -90));
-  if (rev.length) out.push({ html: `Mandas unos <b class="amt">${eur(-sum(rev.map(m => m.amount)) / 3)}</b> al mes a Revolut. Lo que gastas allí no se ve aquí: importa también su extracto si quieres el cuadro completo.` });
-  return out.slice(0, 5);
-}
-
-/* ---------- Movimientos ---------- */
 function catOptions(sel) {
   const groups = { ingreso: 'Ingresos', gasto: 'Gastos', ahorro: 'Ahorro', interno: 'No cuenta' };
   return Object.entries(groups).map(([t, label]) => `<optgroup label="${label}">${Object.entries(CATS).filter(([, c]) => c.type === t)
@@ -1558,42 +1364,6 @@ function renderMovs() {
 }
 
 /* ---------- Presupuestos ---------- */
-function renderPresupuestos() {
-  const d = D();
-  setHeader('Presupuestos', 'Pon un límite al mes a lo que quieras vigilar. Deja la casilla vacía para no usarlo.', true);
-  if (d.empty) { $('#monthNav').style.display = 'none'; return emptyView(); }
-  const mk = state.month, s = d.stats[mk], avg = prevAvg(mk);
-  const cats = Object.entries(CATS).filter(([, c]) => c.type === 'gasto').map(([k]) => k)
-    .sort((a, b) => ((avg && avg.cats[b]) || 0) - ((avg && avg.cats[a]) || 0));
-  const totB = sum(Object.values(db.budgets).filter(v => v > 0));
-  const totV = sum(Object.keys(db.budgets).filter(c => db.budgets[c] > 0).map(c => s.cats[c] || 0));
-  view.innerHTML = `
-  <div class="stats">
-    <div class="card"><p class="stat-l">Presupuesto total</p><p class="stat-v amt num">${eur0(totB)}</p></div>
-    <div class="card"><p class="stat-l">Gastado en esas categorías</p><p class="stat-v amt num">${eur(totV)}</p></div>
-    <div class="card"><p class="stat-l">Te queda</p><p class="stat-v amt num ${totB - totV < 0 ? '' : 'pos'}">${eur(totB - totV)}</p></div>
-  </div>
-  <section class="card">
-    <div class="card-head"><span class="card-title">Límites por categoría</span><button class="btn btn-ghost btn-sm" id="sugBtn" type="button">Usar mi media como límite</button></div>
-    <div class="table">
-      <div class="tr t-bud th"><span>Categoría</span><span class="ta-r hide-sm">Media 3 meses</span><span class="ta-r">Este mes</span><span class="ta-r">Límite</span><span class="hide-sm"></span></div>
-      ${cats.map(c => { const v = s.cats[c] || 0, b = db.budgets[c] || 0, r = b ? v / b : 0, cls = r > 1 ? 'over' : r >= .8 ? 'warn' : ''; return `<div class="tr t-bud">
-        <span>${CATS[c].name}</span>
-        <span class="ta-r muted amt num hide-sm">${avg && avg.cats[c] ? eur(avg.cats[c]) : '–'}</span>
-        <span class="ta-r amt num">${eur(v)}</span>
-        <input class="bud-input num" type="number" min="0" step="10" inputmode="decimal" data-c="${c}" value="${b || ''}" placeholder="Sin límite" aria-label="Límite para ${CATS[c].name}">
-        <span class="hide-sm">${b ? `<div class="meter ${cls}"><i style="width:${Math.min(100, r * 100).toFixed(1)}%"></i></div>` : ''}</span></div>`; }).join('')}
-    </div>
-  </section>`;
-  $$('.bud-input', view).forEach(inp => inp.addEventListener('change', () => {
-    const v = parseFloat(inp.value);
-    if (v > 0) db.budgets[inp.dataset.c] = v; else delete db.budgets[inp.dataset.c];
-    save(); renderPresupuestos();
-  }));
-  $('#sugBtn').addEventListener('click', () => { const n = suggestBudgets(true); save(); renderPresupuestos(); toast(n ? `He puesto ${n} límites con tu media de los últimos 3 meses.` : 'No hay meses suficientes para calcular tu media.'); });
-}
-
-/* ---------- Cargos fijos ---------- */
 function renderFijos() {
   const d = D();
   setHeader('Cargos fijos', 'Detectados solos: lo que se te cobra más o menos igual cada mes.', false);
@@ -1717,8 +1487,6 @@ function renderDatos() {
     }
     save();
     const d = D(); if (!d.empty) state.month = defaultMonth();
-    // primera importación: pon límites de partida con tu media
-    if (!Object.keys(db.budgets).length && suggestBudgets(false)) save();
     renderDatos();
     toast(msgs.join('<br>'));
   }
@@ -1893,7 +1661,6 @@ $('#recents').addEventListener('click', e => {
 $('#addCancel').addEventListener('click', closeAdd);
 sheetBg.addEventListener('click', closeAdd);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && (sheet.classList.contains('on') || pad.classList.contains('on'))) closeAdd(); });
-$('#addBtn').addEventListener('click', () => openAdd());
 document.addEventListener('click', e => { if (e.target.closest('[data-open-add]')) openAdd(); });
 
 $('#addDel').addEventListener('click', () => {
@@ -2003,7 +1770,7 @@ document.addEventListener('click', e => {
 /* =================================================================
    NAVEGACIÓN
    ================================================================= */
-const VIEWS = { resumen: renderResumen, movimientos: renderMovs, presupuestos: renderPresupuestos, fijos: renderFijos, datos: renderDatos };
+const VIEWS = { resumen: renderResumen, movimientos: renderMovs, fijos: renderFijos, datos: renderDatos };
 let chartRO = null;
 function render(animate) {
   hideTip();
