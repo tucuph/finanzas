@@ -509,6 +509,33 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
 .keys button:active { background: rgba(255, 255, 255, .1); }
 .keys .op { color: var(--sky); }
 
+/* ---------- animaciones del inicio (cortas: es una app de uso diario) ---------- */
+@keyframes mfSweep { from { rotate: -200deg; } }
+@keyframes mfSeg { from { stroke-dasharray: 0 300; } }
+@keyframes mfPop { from { opacity: 0; transform: scale(.6); } }
+@keyframes mfUp { from { opacity: 0; transform: translateY(8px); } }
+@keyframes mfBump { 40% { transform: scale(1.18); } }
+@keyframes mfFlash { from { background: color-mix(in srgb, var(--sky) 16%, transparent); } }
+.anim .mf-donut svg { animation: mfSweep .7s cubic-bezier(.2, .8, .2, 1) both; }
+.anim .mf-donut circle[stroke-dashoffset] { animation: mfSeg .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 30ms + 80ms); }
+.anim .mf-mid { animation: mfUp .4s cubic-bezier(.2, .8, .2, 1) .25s both; }
+.anim .mf-cat { animation: mfPop .45s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(var(--i, 0) * 28ms + 60ms); }
+.anim .mf-btns .btn { animation: mfUp .4s cubic-bezier(.2, .8, .2, 1) .35s both; }
+.anim .grp-row { animation: mfUp .35s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 35ms + 120ms); }
+.mf-cat.bump .mf-ic, .mf-bal.bump { animation: mfBump .38s cubic-bezier(.34, 1.56, .64, 1); }
+.grp-row.new { animation: mfUp .35s cubic-bezier(.2, .8, .2, 1), mfFlash 1.4s ease-out; border-radius: 10px; }
+#mfList:not([hidden]) { animation: mfUp .28s cubic-bezier(.2, .8, .2, 1); }
+.grp[open] ul { animation: mfUp .22s cubic-bezier(.2, .8, .2, 1); }
+.grp summary .mf-ic { transition: transform .2s ease; }
+.grp[open] summary .mf-ic { transform: scale(1.08); }
+.mf-btns .btn:active { transform: scale(.95); }
+.keys button { transition: transform .12s ease, background .12s ease; }
+.keys button:active { transform: scale(.93); }
+.pad-cats .chip { transition: background .18s ease, border-color .18s ease, color .18s ease, transform .12s ease; }
+.pad-cats .chip:active { transform: scale(.95); }
+#padOk { transition: opacity .2s ease, transform .2s ease; }
+* { -webkit-tap-highlight-color: transparent; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 1180px) {
   .c3, .c4, .c5 { grid-column: span 6; }
@@ -1189,7 +1216,7 @@ function renderResumen() {
 
   // últimos movimientos (los más recientes, de cualquier mes)
   const last = d.movs.filter(m => m.type === 'gasto' || m.type === 'ingreso').slice(-8).reverse();
-  const lastHTML = last.length ? last.map(m => { const dm = dayMon(m.date); return `<div class="grp-row"${m.manual ? ` data-mfedit="${esc(m.id)}" title="Pulsa para editar"` : ''}>${cIcon(m.cat)}
+  const lastHTML = last.length ? last.map((m, i) => { const dm = dayMon(m.date); return `<div class="grp-row${(state.bump || {}).id === m.id ? ' new' : ''}" style="--i:${i}"${m.manual ? ` data-mfedit="${esc(m.id)}" title="Pulsa para editar"` : ''}>${cIcon(m.cat)}
       <span class="grp-n">${esc(m.manual ? m.concept : pretty(m.concept))}<small>${dm.d} ${dm.m} · ${CATS[m.cat].name}</small></span>
       <b class="amt num ${m.amount > 0 ? 'pos' : ''}">${m.amount > 0 ? '+' : ''}${eur(m.amount)}</b></div>`; }).join('')
     : '<p class="empty">Todavía no hay movimientos.</p>';
@@ -1274,16 +1301,17 @@ function monefyHTML(s) {
   let off = 0;
   const segs = list.map(([c, v]) => {
     const len = v / tot * C;
-    const seg = `<circle cx="50" cy="50" r="${r}" stroke="${catUI(c)[0]}" stroke-width="8" stroke-dasharray="${Math.max(.5, len - gap).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;
+    const seg = `<circle style="--i:${list.findIndex(x => x[0] === c)}" cx="50" cy="50" r="${r}" stroke="${catUI(c)[0]}" stroke-width="8" stroke-dasharray="${Math.max(.5, len - gap).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;
     off += len; return seg;
   }).join('');
   const bal = s.ing - s.gas;
-  const cell = c => `<button class="mf-cat ${s.cats[c] ? '' : 'off'}" type="button" data-pad="${c}" title="${CATS[c].name}">${cIcon(c)}<span class="mf-name">${CATS[c].name}</span><span class="mf-v amt num">${eur0(s.cats[c] || 0)}</span></button>`;
+  const bump = state.bump || {};
+  const cell = (c, i) => `<button class="mf-cat ${s.cats[c] ? '' : 'off'}${bump.cat === c ? ' bump' : ''}" style="--i:${i}" type="button" data-pad="${c}" title="${CATS[c].name}">${cIcon(c)}<span class="mf-name">${CATS[c].name}</span><span class="mf-v amt num">${eur0(s.cats[c] || 0)}</span></button>`;
   return `<div class="mf-ring">
       ${usedCats('gasto', 12).map(cell).join('')}
       <button class="mf-donut" type="button" id="mfDonut" aria-expanded="${!!state.mfOpen}" aria-controls="mfList" aria-label="Ver movimientos por categoría">
         <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${r}" stroke="rgba(255,255,255,.06)" stroke-width="8"/>${segs}</svg>
-        <span class="mf-mid"><small>Saldo del mes</small><b class="mf-bal amt num ${bal < 0 ? 'neg' : ''}">${eur(bal)}</b>
+        <span class="mf-mid"><small>Saldo del mes</small><b class="mf-bal amt num ${bal < 0 ? 'neg' : ''}${bump.cat ? ' bump' : ''}">${eur(bal)}</b>
           <span class="mf-io"><span class="pos amt num">+${eur0(s.ing)}</span><span class="mf-out amt num">−${eur0(s.gas)}</span></span></span>
       </button>
     </div>
@@ -1756,7 +1784,9 @@ pad.addEventListener('submit', e => {
   db.movs.push(mov);
   save(); closeAdd();
   if (state.view === 'resumen') state.month = mov.date.slice(0, 7);
+  state.bump = { cat, id: mov.id };
   render(false);
+  state.bump = null;
   toast(`<span class="pos">✓</span> <b>${esc(concept)}</b> <span class="amt">${amount > 0 ? '+' : '−'}${eur(v)}</span>${concept === CATS[cat].name ? '' : ' · ' + CATS[cat].name}`,
     [{ label: 'Deshacer', fn: () => { db.movs = db.movs.filter(x => x !== mov); save(); render(false); } }]);
 });
