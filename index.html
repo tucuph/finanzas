@@ -457,6 +457,54 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
   .grab { display: none; }
 }
 
+/* ---------- inicio estilo Monefy ---------- */
+.mf { padding: 18px 14px; }
+.mf-ring { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 6px; max-width: 460px; margin: 0 auto; }
+.mf-donut { grid-column: 2 / 4; grid-row: 2 / 4; align-self: center; position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 1; border-radius: 50%; }
+.mf-donut svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; }
+.mf-donut circle { fill: none; }
+.mf-mid { position: relative; display: grid; gap: 3px; text-align: center; }
+.mf-mid small { font-size: 11px; color: var(--muted); }
+.mf-bal { font: 600 17px/1.1 var(--display); letter-spacing: -.02em; }
+.mf-bal.neg { color: var(--bad); }
+.mf-io { display: flex; gap: 8px; justify-content: center; font-size: 11px; }
+.mf-out { color: #ffb4b4; }
+.mf-cat { display: grid; justify-items: center; gap: 4px; min-width: 0; padding: 2px 0; }
+.mf-ic { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: var(--c); background: color-mix(in srgb, var(--c) 15%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 38%, transparent); transition: transform .2s ease, opacity .2s ease; }
+.mf-ic svg { width: 21px; height: 21px; }
+.mf-cat:active .mf-ic { transform: scale(.9); }
+.mf-cat.off .mf-ic { opacity: .5; }
+.mf-name { max-width: 100%; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mf-v { font-size: 11.5px; font-weight: 600; }
+.mf-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; max-width: 460px; margin: 20px auto 0; }
+.mf-btns .btn { height: 54px; font-size: 16px; border-radius: 16px; }
+.btn-out { background: rgba(240, 113, 113, .12); border: 1px solid rgba(240, 113, 113, .4); color: #ffb4b4; }
+.btn-in { background: rgba(25, 158, 112, .16); border: 1px solid rgba(79, 209, 165, .45); color: var(--income-ink); }
+.grp { border-top: 1px solid var(--line); }
+.grp summary { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; cursor: pointer; list-style: none; }
+.grp summary::-webkit-details-marker { display: none; }
+.grp .mf-ic { width: 34px; height: 34px; } .grp .mf-ic svg { width: 16px; height: 16px; }
+.grp-n { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grp-n small { margin-left: 6px; font-weight: 500; color: var(--muted); }
+.grp ul { list-style: none; margin: 0 0 8px 46px; padding: 0; }
+.grp li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; font-size: 13px; border-top: 1px dashed var(--line); }
+.grp li > span { min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grp li[data-mfedit] { cursor: pointer; }
+/* teclado calculadora */
+.pad-cats { display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 0 20px 4px; scrollbar-width: none; }
+.pad-cats::-webkit-scrollbar { display: none; }
+.pad-cats .chip { flex: none; height: 34px; font-size: 13px; }
+.pad-cats .chip[aria-pressed="true"] { color: var(--ink); border-color: var(--c); background: color-mix(in srgb, var(--c) 18%, transparent); }
+.pad-amt { font: 600 40px/1 var(--display); letter-spacing: -.03em; text-align: right; margin: 16px 2px 0; white-space: nowrap; overflow-x: auto; }
+.pad-amt.in { color: var(--income-ink); }
+.pad-expr { min-height: 18px; margin: 4px 2px 0; text-align: right; font-size: 13px; color: var(--muted); }
+.pad-meta { display: grid; grid-template-columns: 1.3fr 1fr; gap: 8px; margin-top: 12px; }
+.pad-meta input { width: 100%; min-width: 0; }
+.keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.keys button { height: 54px; border-radius: 14px; background: rgba(255, 255, 255, .05); border: 1px solid var(--line); font: 600 22px var(--display); color: var(--ink); }
+.keys button:active { background: rgba(255, 255, 255, .1); }
+.keys .op { color: var(--sky); }
+
 /* ---------- responsive ---------- */
 @media (max-width: 1180px) {
   .c3, .c4, .c5 { grid-column: span 6; }
@@ -592,6 +640,25 @@ body.locked { position: fixed; left: 0; right: 0; overflow: hidden; }
   <p class="hint" id="addHint">Escribe como hablas: «café 2,20», «gasolina 40», «+50 bizum de Juan».</p>
 </form>
 
+<form class="sheet" id="pad" role="dialog" aria-modal="true" aria-labelledby="padTitle" autocomplete="off">
+  <div class="grab" aria-hidden="true"></div>
+  <h2 id="padTitle">Gasto</h2>
+  <div class="pad-cats" id="padCats" role="group" aria-label="Categoría"></div>
+  <p class="pad-amt num" id="padAmt" aria-live="polite">0,00 €</p>
+  <p class="pad-expr num" id="padExpr"></p>
+  <div class="pad-meta"><input type="text" id="padNote" placeholder="Nota (opcional)" aria-label="Nota" enterkeyhint="done"><input type="date" id="padDate" aria-label="Fecha"></div>
+  <div class="keys" id="keys">
+    <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" class="op" data-k="÷" aria-label="Dividir">÷</button>
+    <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" class="op" data-k="×" aria-label="Multiplicar">×</button>
+    <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" class="op" data-k="-" aria-label="Restar">−</button>
+    <button type="button" data-k=",">,</button><button type="button" data-k="0">0</button><button type="button" data-k="del" aria-label="Borrar">⌫</button><button type="button" class="op" data-k="+" aria-label="Sumar">+</button>
+  </div>
+  <div class="sheet-actions">
+    <button type="button" class="btn btn-ghost" id="padCancel">Cancelar</button>
+    <button type="submit" class="btn btn-primary" id="padOk">Guardar</button>
+  </div>
+</form>
+
 <div class="tip" id="tip" role="tooltip"></div>
 <div class="toast" id="toast" hidden></div>
 
@@ -666,6 +733,38 @@ const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 
 const MONTHS_UP = MONTHS.map(m => m.toUpperCase());
 const MON = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const WEEK = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+// color e icono (trazo 24x24) de cada categoría para el inicio
+const CAT_UI = {
+  nomina:        ['#4fd1a5', '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'],
+  prestacion:    ['#34d399', '<path d="M12 3l9 5H3zM5 10v7M9.5 10v7M14.5 10v7M19 10v7M3 20h18"/>'],
+  bizum_in:      ['#2dd4bf', '<path d="M12 19V5M6 11l6-6 6 6"/>'],
+  otros_ing:     ['#86efac', '<path d="M12 5v14M5 12h14"/>'],
+  vivienda:      ['#60a5fa', '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/>'],
+  prestamo:      ['#a78bfa', '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'],
+  seguros:       ['#818cf8', '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>'],
+  super:         ['#f59e0b', '<path d="M3 4h2l2.5 11h11L21 7H6"/><circle cx="9" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>'],
+  restaurantes:  ['#fb923c', '<path d="M7 3v18M4 3v5a3 3 0 0 0 6 0V3M17 21V3c-2.5 1.5-3.5 4-3.5 8h3.5"/>'],
+  domicilio:     ['#f97316', '<path d="M3 15h18M5 15a7 7 0 0 1 14 0M12 6V4M3 19h18"/>'],
+  suscripciones: ['#e879f9', '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>'],
+  telefonia:     ['#22d3ee', '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>'],
+  transporte:    ['#38bdf8', '<path d="M5 16v-5l2-5h10l2 5v5zM5 16v3M19 16v3M5 11h14"/>'],
+  compras:       ['#f472b6', '<path d="M6 7h12l1 14H5z"/><path d="M9 7a3 3 0 0 1 6 0"/>'],
+  deporte:       ['#4ade80', '<path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/>'],
+  salud:         ['#f87171', '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'],
+  ocio:          ['#c084fc', '<path d="M4 8h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z"/><path d="M14 9v2M14 13v2"/>'],
+  estanco:       ['#a8a29e', '<rect x="2.5" y="13" width="15" height="4" rx="1"/><path d="M20 13v4M17 9c0-2 3-2 3-4"/>'],
+  impuestos:     ['#fbbf24', '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>'],
+  tarjeta:       ['#93c5fd', '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/>'],
+  efectivo:      ['#86efac', '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>'],
+  bizum_out:     ['#2dd4bf', '<path d="M12 5v14M6 13l6 6 6-6"/>'],
+  revolut:       ['#cbd5e1', '<path d="M8 20V4h5.5a4.5 4.5 0 0 1 0 9H8M12.5 13l4.5 7"/>'],
+  otros:         ['#94a3b8', '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>'],
+  ahorro:        ['#7cc4ff', '<path d="M5 11a7 6 0 0 1 13-2h2v4l-2 1v3h-3v-2h-5v2H7v-3a6 6 0 0 1-2-3z"/>'],
+  interno:       ['#64748b', '<path d="M7 7h12l-3-3M17 17H5l3 3"/>']
+};
+const catUI = c => CAT_UI[c] || CAT_UI.otros;
+const cIcon = c => `<span class="mf-ic" style="--c:${catUI(c)[0]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${catUI(c)[1]}</svg></span>`;
 
 /* =================================================================
    UTILIDADES
@@ -1210,30 +1309,6 @@ function renderResumen() {
       <p class="empty">No encuentro una nómina en tus movimientos. Si cobras con otro concepto, cámbiale la categoría a «Nómina» en Movimientos.</p>`;
   }
 
-  // kpis del mes
-  const kpi = (label, color, val, avgVal, goodWhenUp) => {
-    let dl = '';
-    if (avgVal != null && Math.abs(avgVal) > 1) {
-      const ch = (val - avgVal) / Math.abs(avgVal);
-      const up = ch >= 0, good = up === goodWhenUp;
-      dl = `<span class="delta ${up ? 'up' : 'down'}-${good ? 'good' : 'bad'}"><b>${up ? '▲' : '▼'} ${pct(Math.abs(ch))}</b><br>vs. tu media</span>`;
-    }
-    return `<div class="kpi"><span class="kpi-label">${color ? `<i style="background:${color}"></i>` : ''}${label}</span><span class="kpi-val amt num">${eur(val)}</span>${dl}</div>`;
-  };
-  const left = s.ing - s.gas;
-  const rate = s.ing > 0 ? left / s.ing : null;
-
-  // categorías del mes
-  const catList = Object.entries(s.cats).filter(([, v]) => v > 0.005).sort((a, b) => b[1] - a[1]);
-  const topCats = catList.slice(0, 8), rest = sum(catList.slice(8).map(c => c[1]));
-  const maxCat = topCats.length ? topCats[0][1] : 1;
-  const catsHTML = topCats.length ? topCats.map(([c, v]) => {
-    let dd = '';
-    if (avg && avg.cats[c] > 5) { const ch = (v - avg.cats[c]) / avg.cats[c]; if (Math.abs(ch) >= .15) dd = `<span class="cat-d">${ch > 0 ? '+' : '−'}${pct(Math.abs(ch))}</span>`; }
-    return `<button class="cat" type="button" data-cat="${c}"><span class="cat-name">${CATS[c].name}${dd}</span><span class="cat-amt amt num">${eur(v)}</span><span class="cat-bar"><i style="width:${(v / maxCat * 100).toFixed(1)}%"></i></span></button>`;
-  }).join('') + (rest > 0 ? `<div class="cat" style="cursor:default"><span class="cat-name muted">Resto (${catList.length - 8})</span><span class="cat-amt amt num">${eur(rest)}</span></div>` : '')
-    : '<p class="empty">Sin gastos este mes.</p>';
-
   // próximos cargos
   const ups = d.fixed.filter(f => f.active).slice(0, 6);
   const upsHTML = ups.length ? `<ul class="ups">${ups.map(f => { const dm = dayMon(f.next); return `<li>
@@ -1280,22 +1355,18 @@ function renderResumen() {
 
   view.innerHTML = `
   <div class="grid">
-    <section class="card c5">
+    <section class="card c12 mf">${monefyHTML(s)}</section>
+    <section class="card c12" id="mfList"${state.mfOpen ? '' : ' hidden'}>
+      <div class="card-head"><span class="card-title">Por categoría</span><span class="card-sub" style="text-transform:capitalize">${MONTHS[+mk.slice(5) - 1]}</span></div>
+      ${groupsHTML(d, mk, s)}
+    </section>
+    <section class="card c6">
       <div class="card-head" style="margin-bottom:6px"><span class="card-title">Saldo</span></div>
       <p class="big amt num">${eur(d.saldo)}</p>
       <div id="areaHost"></div>
       <div class="area-cap"><span>${p0.d} ${p0.m}</span><span>Pasa el cursor para ver cada día</span><span>Hoy</span></div>
     </section>
-    <section class="card c4">${availHTML}</section>
-    <section class="card c3">
-      <div class="card-head"><span class="card-title" style="text-transform:capitalize">${MONTHS[+mk.slice(5) - 1]}</span>${rate == null ? '' : rate >= 0 ? `<span class="chip">Ahorras ${pct(rate)}</span>` : '<span class="chip" style="color:var(--warn)">Sale más de lo que entra</span>'}</div>
-      <div class="kpis">
-        ${kpi('Ingresos', 'var(--income)', s.ing, avg && avg.ing, true)}
-        ${kpi('Gastos', 'var(--blue)', s.gas, avg && avg.gas, false)}
-        <div class="kpi"><span class="kpi-label">Te queda</span><span class="kpi-val amt num ${left >= 0 ? 'pos' : ''}">${eur(left)}</span>${avg ? `<span class="delta">Media<br><b class="amt num">${eur0(avg.ing - avg.gas)}</b></span>` : ''}</div>
-      </div>
-    </section>
-
+    <section class="card c6">${availHTML}</section>
     <section class="card c8">
       <div class="card-head"><span class="card-title">Ingresos y gastos por mes</span>
         <span class="legend"><span><i style="background:var(--income)"></i>Ingresos</span><span><i style="background:var(--blue)"></i>Gastos</span></span></div>
@@ -1303,20 +1374,14 @@ function renderResumen() {
       <p class="card-sub" style="margin-top:8px">Pulsa un mes para verlo en detalle. Los traspasos entre tus propias cuentas no cuentan como gasto.</p>
     </section>
     <section class="card c4">
-      <div class="card-head"><span class="card-title">En qué se va</span><span class="card-sub amt num">${eur(s.gas)}</span></div>
-      <div class="cats">${catsHTML}</div>
-      ${avg ? '<p class="card-sub" style="margin-top:10px">El porcentaje compara con tu media de los 3 meses anteriores.</p>' : ''}
-    </section>
-
-    <section class="card c4">
       <div class="card-head"><span class="card-title">Próximos cargos</span><a class="chip" href="#fijos">Ver todos</a></div>
       ${upsHTML}
     </section>
-    <section class="card c4">
+    <section class="card c6">
       <div class="card-head"><span class="card-title">Presupuestos</span><a class="chip" href="#presupuestos">Editar</a></div>
       ${budsHTML}
     </section>
-    <section class="card c4">
+    <section class="card c6">
       <div class="card-head"><span class="card-title">Lo que veo</span></div>
       <ul class="ins">${insights(mk).map(i => `<li><span class="ins-ic ${i.k || ''}">${ICON[i.ic || 'info']}</span><span>${i.html}</span></li>`).join('')}</ul>
     </section>
@@ -1342,11 +1407,53 @@ function renderResumen() {
     if (Math.abs(h.clientWidth - (+h.dataset.w || 0)) > 2) { h.dataset.w = h.clientWidth; fn(h); }
   }));
   draws.forEach(([h]) => chartRO.observe(h));
-  $$('.cat[data-cat]', view).forEach(b => b.addEventListener('click', () => {
-    state.f = { q: '', month: mk, cat: b.dataset.cat, acc: '', limit: 150 };
-    location.hash = '#movimientos';
-  }));
+  $('#mfDonut').addEventListener('click', () => {
+    state.mfOpen = !state.mfOpen;
+    $('#mfList').hidden = !state.mfOpen;
+    $('#mfDonut').setAttribute('aria-expanded', state.mfOpen);
+    if (state.mfOpen) $('#mfList').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  });
   animateRings(view);
+}
+
+// las categorías que más usas, de más a menos (todo tu historial, para que no bailen cada mes)
+function usedCats(type, n) {
+  const count = {};
+  for (const m of D().movs || []) if (m.type === type) count[m.cat] = (count[m.cat] || 0) + 1;
+  return Object.keys(CATS).filter(c => CATS[c].type === type).sort((a, b) => (count[b] || 0) - (count[a] || 0)).slice(0, n);
+}
+function monefyHTML(s) {
+  const list = Object.entries(s.cats).filter(([, v]) => v > .005).sort((a, b) => b[1] - a[1]);
+  const tot = sum(list.map(x => x[1])), r = 43, C = 2 * Math.PI * r, gap = list.length > 1 ? 1.2 : 0;
+  let off = 0;
+  const segs = list.map(([c, v]) => {
+    const len = v / tot * C;
+    const seg = `<circle cx="50" cy="50" r="${r}" stroke="${catUI(c)[0]}" stroke-width="8" stroke-dasharray="${Math.max(.5, len - gap).toFixed(2)} ${C.toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}"/>`;
+    off += len; return seg;
+  }).join('');
+  const bal = s.ing - s.gas;
+  const cell = c => `<button class="mf-cat ${s.cats[c] ? '' : 'off'}" type="button" data-pad="${c}" title="${CATS[c].name}">${cIcon(c)}<span class="mf-name">${CATS[c].name}</span><span class="mf-v amt num">${eur0(s.cats[c] || 0)}</span></button>`;
+  return `<div class="mf-ring">
+      ${usedCats('gasto', 12).map(cell).join('')}
+      <button class="mf-donut" type="button" id="mfDonut" aria-expanded="${!!state.mfOpen}" aria-controls="mfList" aria-label="Ver movimientos por categoría">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="${r}" stroke="rgba(255,255,255,.06)" stroke-width="8"/>${segs}</svg>
+        <span class="mf-mid"><small>Saldo del mes</small><b class="mf-bal amt num ${bal < 0 ? 'neg' : ''}">${eur(bal)}</b>
+          <span class="mf-io"><span class="pos amt num">+${eur0(s.ing)}</span><span class="mf-out amt num">−${eur0(s.gas)}</span></span></span>
+      </button>
+    </div>
+    <div class="mf-btns"><button class="btn btn-out" type="button" data-pad="-">− Gasto</button><button class="btn btn-in" type="button" data-pad="+">+ Ingreso</button></div>`;
+}
+function groupsHTML(d, mk, s) {
+  const g = {};
+  for (const m of d.movs) if (m.date.slice(0, 7) === mk && (m.type === 'gasto' || m.type === 'ingreso')) (g[m.cat] = g[m.cat] || []).push(m);
+  const rows = Object.entries(g).map(([c, ms]) => ({ c, ms: ms.reverse(), v: sum(ms.map(m => m.amount)) }))
+    .sort((a, b) => (b.v > 0) - (a.v > 0) || Math.abs(b.v) - Math.abs(a.v));
+  if (!rows.length) return '<p class="empty">Sin movimientos este mes.</p>';
+  return rows.map(({ c, ms, v }) => {
+    const base = v > 0 ? s.ing : s.gas;
+    return `<details class="grp"><summary>${cIcon(c)}<span class="grp-n">${CATS[c].name}<small>${base ? pct(Math.abs(v) / base) : ''}</small></span><b class="amt num ${v > 0 ? 'pos' : ''}">${v > 0 ? '+' : ''}${eur(v)}</b></summary>
+      <ul>${ms.map(m => { const dm = dayMon(m.date); return `<li${m.manual ? ` data-mfedit="${esc(m.id)}" title="Pulsa para editar"` : ''}><span>${dm.d} ${dm.m} · ${esc(m.manual ? m.concept : pretty(m.concept))}</span><b class="amt num">${eur(m.amount)}</b></li>`; }).join('')}</ul></details>`;
+  }).join('');
 }
 
 function budRow({ c, b, v }) {
@@ -1749,7 +1856,7 @@ function openAdd(mov) {
   if (mov) addText.setSelectionRange(addText.value.length, addText.value.length);
 }
 function closeAdd() {
-  sheet.classList.remove('on', 'kb'); sheetBg.classList.remove('on'); addText.blur();
+  sheet.classList.remove('on', 'kb'); pad.classList.remove('on'); sheetBg.classList.remove('on'); addText.blur(); $('#padNote').blur();
   unlockPage();
 }
 // el iPhone no achica la pantalla al sacar el teclado: medimos el hueco libre y colocamos el panel encima
@@ -1785,7 +1892,7 @@ $('#recents').addEventListener('click', e => {
 });
 $('#addCancel').addEventListener('click', closeAdd);
 sheetBg.addEventListener('click', closeAdd);
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheet.classList.contains('on')) closeAdd(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && (sheet.classList.contains('on') || pad.classList.contains('on'))) closeAdd(); });
 $('#addBtn').addEventListener('click', () => openAdd());
 document.addEventListener('click', e => { if (e.target.closest('[data-open-add]')) openAdd(); });
 
@@ -1818,6 +1925,79 @@ sheet.addEventListener('submit', e => {
   render(false);
   toast(`<span class="pos">✓</span> <b>${esc(concept)}</b> <span class="amt">${amount > 0 ? '+' : '−'}${eur(Math.abs(amount))}</span> · ${CATS[cat].name}`,
     wasEditing ? [] : [{ label: 'Deshacer', fn: () => { db.movs = db.movs.filter(x => x !== mov); save(); render(false); } }]);
+});
+
+/* ---------- teclado tipo calculadora (inicio estilo Monefy) ---------- */
+const pad = $('#pad'), P = { type: 'gasto', cat: 'otros', expr: '' };
+// × y ÷ antes que + y −; la expresión solo la escribe el teclado
+function calc(expr) {
+  const t = expr.replace(/[-+×÷,]+$/, '').split(/([-+×÷])/);
+  const terms = []; let cur = parseFloat((t[0] || '0').replace(',', '.')) || 0, sign = 1;
+  for (let i = 1; i < t.length; i += 2) {
+    const op = t[i], n = parseFloat(t[i + 1].replace(',', '.')) || 0;
+    if (op === '×') cur *= n; else if (op === '÷') cur = n ? cur / n : cur;
+    else { terms.push(sign * cur); sign = op === '+' ? 1 : -1; cur = n; }
+  }
+  terms.push(sign * cur);
+  return Math.round(sum(terms) * 100) / 100;
+}
+console.assert(calc('2+3×4') === 14 && calc('10÷4') === 2.5 && calc('7,5-2') === 5.5 && calc('12,') === 12 && calc('') === 0, 'calc');
+function padShow() {
+  const v = calc(P.expr), inc = P.type === 'ingreso';
+  $('#padAmt').textContent = (v > 0 ? (inc ? '+' : '−') : '') + eur(Math.max(0, v));
+  $('#padAmt').classList.toggle('in', inc);
+  $('#padExpr').textContent = /[-+×÷]/.test(P.expr) ? P.expr.replace(/-/g, '−') : '';
+  $('#padOk').disabled = !(v > 0);
+}
+function padPick(c) {
+  P.cat = c;
+  $$('#padCats button').forEach(b => b.setAttribute('aria-pressed', b.dataset.c === c));
+}
+function openPad(type, cat) {
+  if (!Object.keys(db.accounts).length) ensureAccount('Mi cuenta');
+  P.type = type; P.expr = '';
+  const cats = usedCats(type, 99);
+  if (cat && !cats.includes(cat)) cats.unshift(cat);
+  $('#padTitle').textContent = type === 'ingreso' ? 'Ingreso' : 'Gasto';
+  $('#padCats').innerHTML = cats.map(c => `<button class="chip" type="button" data-c="${c}" style="--c:${catUI(c)[0]}">${CATS[c].name}</button>`).join('');
+  padPick(cat || cats[0]);
+  $('#padNote').value = ''; $('#padDate').value = todayS(); $('#padDate').max = addDays(todayS(), 365);
+  padShow();
+  $('#toast').hidden = true;
+  lockPage();
+  pad.classList.add('on'); sheetBg.classList.add('on');
+  const sel = $('#padCats [aria-pressed="true"]'); if (sel) sel.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+$('#padCats').addEventListener('click', e => { const b = e.target.closest('button'); if (b) padPick(b.dataset.c); });
+$('#keys').addEventListener('click', e => {
+  const k = e.target.closest('button') && e.target.closest('button').dataset.k; if (!k) return;
+  const x = P.expr, last = x.slice(-1), num = x.split(/[-+×÷]/).pop();
+  if (k === 'del') P.expr = x.slice(0, -1);
+  else if ('+-×÷'.includes(k)) { if (x) P.expr = (/[-+×÷,]/.test(last) ? x.slice(0, -1) : x) + k; }
+  else if (k === ',') { if (!num.includes(',')) P.expr = x + (num ? ',' : '0,'); }
+  else if (!/,\d\d$/.test(num) && x.length < 24) P.expr = x + k;
+  padShow();
+});
+$('#padCancel').addEventListener('click', closeAdd);
+pad.addEventListener('submit', e => {
+  e.preventDefault();
+  const v = calc(P.expr); if (!(v > 0)) return;
+  const { type, cat } = P, amount = type === 'ingreso' ? v : -v;
+  const concept = $('#padNote').value.trim() || CATS[cat].name;
+  const mov = { id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), acc: defaultAcc(), date: $('#padDate').value || todayS(),
+    concept, amount, balance: null, seq: ++db.seq, manual: true, cat, picked: true };
+  db.movs.push(mov);
+  save(); closeAdd();
+  if (state.view === 'resumen') state.month = mov.date.slice(0, 7);
+  render(false);
+  toast(`<span class="pos">✓</span> <b>${esc(concept)}</b> <span class="amt">${amount > 0 ? '+' : '−'}${eur(v)}</span>${concept === CATS[cat].name ? '' : ' · ' + CATS[cat].name}`,
+    [{ label: 'Deshacer', fn: () => { db.movs = db.movs.filter(x => x !== mov); save(); render(false); } }]);
+});
+document.addEventListener('click', e => {
+  const p = e.target.closest('[data-pad]');
+  if (p) { const k = p.dataset.pad; openPad(k === '+' ? 'ingreso' : 'gasto', CATS[k] ? k : null); return; }
+  const ed = e.target.closest('[data-mfedit]');
+  if (ed) { const m = db.movs.find(x => x.id === ed.dataset.mfedit); if (m) openAdd(m); }
 });
 
 /* =================================================================
